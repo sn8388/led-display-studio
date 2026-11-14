@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VISIONMAX 投送台 · LED REMOTE PUBLISHER</title>
+<style>
+:root{
+  --bg:#0b0f17; --panel:#121826; --panel2:#0e1420; --line:#1f2a3d;
+  --txt:#dbe4f3; --dim:#8494ad; --acc:#4dabf7; --ok:#51cf66; --warn:#ffd43b; --err:#ff6b6b;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:
+    radial-gradient(1200px 500px at 70% -10%,rgba(77,171,247,.08),transparent 60%),
+    var(--bg);
+  color:var(--txt);font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif;min-height:100vh;
+}
+.top{
+  display:flex;align-items:center;gap:14px;padding:14px 22px;
+  border-bottom:1px solid var(--line);background:rgba(14,20,32,.9);position:sticky;top:0;z-index:5;
+}
+.logo{width:30px;height:30px;border-radius:7px;background:linear-gradient(135deg,#4dabf7,#15aabf);
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#04101f}
+.top h1{font-size:16px;letter-spacing:1px}
+.top h1 small{display:block;font-size:10px;color:var(--dim);letter-spacing:3px;font-weight:400}
+.top .link{margin-left:auto;font-size:12px;color:var(--acc);text-decoration:none;border:1px solid var(--line);
+  padding:6px 12px;border-radius:8px;background:var(--panel2)}
+.top .link:hover{border-color:var(--acc)}
+.wrap{display:grid;grid-template-columns:330px 1fr;gap:16px;padding:16px 22px;max-width:1280px;margin:0 auto}
+@media(max-width:900px){.wrap{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
+.card h3{font-size:13px;letter-spacing:1px;color:var(--txt);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.card h3 .tag{font-size:10px;color:var(--dim);letter-spacing:2px;margin-left:auto}
+.row{display:flex;align-items:center;gap:8px;margin-bottom:9px;font-size:12px}
+.row label{color:var(--dim);flex:none;width:44px}
+input[type=text],input[type=url],textarea,select{
+  width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);
+  border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;outline:none}
+input:focus,textarea:focus,select:focus{border-color:var(--acc)}
+textarea{resize:vertical;min-height:74px;line-height:1.5}
+.btn{border:1px solid var(--line);background:var(--panel2);color:var(--txt);border-radius:8px;
+  padding:8px 14px;font-size:12px;cursor:pointer;font-family:inherit}
+.btn:hover{border-color:#3b4c68}
+.btn.solid{background:var(--acc);border-color:var(--acc);color:#04101f;font-weight:700}
+.btn.danger{color:var(--err)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.dot{width:9px;height:9px;border-radius:50%;background:#5a6575;flex:none}
+.dot.ok{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.dot.err{background:var(--err);box-shadow:0 0 8px var(--err)}
+.dot.wait{background:var(--warn);box-shadow:0 0 8px var(--warn);animation:bl 1s infinite}
+@keyframes bl{50%{opacity:.35}}
+.state{font-weight:700;font-size:12px}
+.log{background:#060a12;border:1px solid var(--line);border-radius:8px;padding:8px;height:180px;
+  overflow:auto;font:11px/1.7 Consolas,Menlo,monospace;color:#9fb0c8}
+.log .ok{color:#7ee79a}.log .warn{color:#ffd43b}.log .err{color:#ff8a8a}
+.tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.tabs button{flex:1;min-width:80px;border:1px solid var(--line);background:var(--panel2);color:var(--dim);
+  padding:9px 0;border-radius:9px;font-size:13px;cursor:pointer;font-family:inherit}
+.tabs button.active{background:rgba(77,171,247,.14);border-color:var(--acc);color:var(--acc);font-weight:700}
+.tabpane{display:none}.tabpane.active{display:block}
+.swatch{width:24px;height:24px;border-radius:6px;border:2px solid transparent;cursor:pointer;flex:none}
+.swatch.active{border-color:#fff;box-shadow:0 0 6px rgba(255,255,255,.4)}
+.seg{display:flex;gap:5px}
+.seg button{border:1px solid var(--line);background:var(--panel2);color:var(--dim);padding:6px 12px;
+  border-radius:7px;font-size:12px;cursor:pointer;font-family:inherit}
+.seg button.active{border-color:var(--acc);color:var(--acc);background:rgba(77,171,247,.12)}
+.preview{border:1px solid var(--line);border-radius:8px;background:#060a12;min-height:120px;
+  display:flex;align-items:center;justify-content:center;margin:9px 0;overflow:hidden}
+.preview img,.preview video{max-width:100%;max-height:190px;object-fit:contain}
+.preview .ph{color:#3d4c66;font-size:12px;padding:40px 0}
+input[type=range]{flex:1;accent-color:var(--acc)}
+.val{color:var(--dim);font-size:11px;min-width:38px;text-align:right}
+.chk{display:flex;align-items:center;gap:5px;color:var(--dim);font-size:12px;cursor:pointer}
+.hint{font-size:11px;color:#5f7089;line-height:1.7;margin-top:7px}
+.kb{color:var(--acc);font-weight:700}
+.foot{text-align:center;color:#3d4c66;font-size:11px;padding:8px 0 20px;letter-spacing:1px}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="logo">V</div>
+  <h1>VISIONMAX 投送台<small>LED REMOTE PUBLISHER</small></h1>
+  <a class="link" href="led-display-studio.html" target="_blank">打开大屏 ↗</a>
+</div>
+
+<div class="wrap">
+  <!-- 左列：连接 + 日志 -->
+  <div>
+    <div class="card">
+      <h3>信号链路<span class="tag">MQTT LINK</span></h3>
+      <div class="row"><span class="dot" id="dot"></span><span class="state" id="state">未连接</span>
+        <label class="chk" style="margin-left:auto"><input type="checkbox" id="auto">自动连接</label></div>
+      <div class="row"><input type="url" id="url" value="wss://2121166752201678848.app.workbuddy.host/mqtt?sharecode=7PPU2UMG6J"></div>
+      <div class="row">
+        <button class="btn solid" id="btnConn" style="flex:1">连接</button>
+        <button class="btn danger" id="btnDisc">断开</button>
+      </div>
+      <div class="row"><label>目标</label>
+        <select id="cell">
+          <option value="">全屏投放</option>
+          <option value="0">分区 1</option><option value="1">分区 2</option>
+          <option value="2">分区 3</option><option value="3">分区 4</option>
+        </select>
+      </div>
+      <div class="hint">连接后即可把下方内容实时推送到大屏。目标选「分区 n」时，内容只替换对应分区（需大屏处于多分区布局）。</div>
+    </div>
+    <div class="card">
+      <h3>投送日志<span class="tag">LOG</span></h3>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+
+  <!-- 右列：四类投送 -->
+  <div>
+    <div class="card">
+      <div class="tabs" id="tabs">
+        <button data-t="text" class="active">📝 文字</button>
+        <button data-t="image">🖼 图片</button>
+        <button data-t="video">🎬 视频</button>
+        <button data-t="ctrl">🎛 屏控</button>
+      </div>
+
+      <!-- 文字 -->
+      <div class="tabpane active" id="pane-text">
+        <div class="row"><textarea id="txtContent">欢迎光临
+WELCOME</textarea></div>
+        <div class="row"><label>字号</label><input type="range" id="txtSize" min="30" max="170" value="120"><span class="val" id="txtSizeV">120</span></div>
+        <div class="row"><label>颜色</label><span id="colors" style="display:flex;gap:7px">
+          <span class="swatch active" data-c="#ffffff" style="background:#ffffff"></span>
+          <span class="swatch" data-c="#ff4d4f" style="background:#ff4d4f"></span>
+          <span class="swatch" data-c="#ffd43b" style="background:#ffd43b"></span>
+          <span class="swatch" data-c="#51cf66" style="background:#51cf66"></span>
+          <span class="swatch" data-c="#4dabf7" style="background:#4dabf7"></span>
+          <span class="swatch" data-c="#e599f7" style="background:#e599f7"></span>
+        </span>
+        <label class="chk" style="margin-left:auto"><input type="checkbox" id="txtGlow" checked>发光</label></div>
+        <div class="row"><label>对齐</label><div class="seg" id="txtAlign">
+          <button data-v="left">左</button><button data-v="center" class="active">中</button><button data-v="right">右</button>
+        </div>
+        <label class="chk" style="margin-left:auto"><input type="checkbox" id="txtScroll">跑马灯</label></div>
+        <div class="row"><button class="btn solid" id="btnTxt" style="flex:1">🚀 文字上屏</button></div>
+      </div>
+
+      <!-- 图片 -->
+      <div class="tabpane" id="pane-image">
+        <div class="row"><input type="url" id="imgUrl" placeholder="粘贴图片 URL（https://… 或 data:image/…）"></div>
+        <div class="row"><label>填充</label><div class="seg" id="imgFit">
+          <button data-v="contain" class="active">适应</button><button data-v="cover">填满</button><button data-v="fill">拉伸</button>
+        </div>
+        <button class="btn" id="btnImgUrl" style="margin-left:auto">URL 上屏</button></div>
+        <div class="row"><label>本地</label><input type="file" id="imgFile" accept="image/*"></div>
+        <div class="preview" id="imgPrev"><span class="ph">本地图片预览（自动压缩后投送）</span></div>
+        <div class="row"><span class="hint" id="imgInfo">选择文件后自动压缩（最长边 ≤1280px），避免超出 broker 消息上限。</span>
+          <button class="btn solid" id="btnImgLocal" style="margin-left:auto" disabled>🚀 图片上屏</button></div>
+      </div>
+
+      <!-- 视频 -->
+      <div class="tabpane" id="pane-video">
+        <div class="row"><input type="url" id="vidUrl" placeholder="粘贴视频 URL（https://….mp4 / .webm）"></div>
+        <div class="row">
+          <label class="chk"><input type="checkbox" id="vidMuted" checked>静音</label>
+          <label class="chk"><input type="checkbox" id="vidLoop" checked>循环</label>
+          <button class="btn solid" id="btnVidUrl" style="margin-left:auto">🚀 视频上屏</button>
+        </div>
+        <div class="row"><label>本地</label><input type="file" id="vidFile" accept="video/*"></div>
+        <div class="preview" id="vidPrev"><span class="ph">本地视频预览</span></div>
+        <div class="row"><span class="hint" id="vidInfo">本地视频以 dataURL 投送，建议 ≤3MB；更大的视频请用 URL 方式。</span>
+          <button class="btn solid" id="btnVidLocal" style="margin-left:auto" disabled>🚀 视频上屏</button></div>
+      </div>
+
+      <!-- 屏控 -->
+      <div class="tabpane" id="pane-ctrl">
+        <div class="row"><label>布局</label><div class="seg" id="laySeg">
+          <button data-v="single">全屏</button><button data-v="lr">左右</button>
+          <button data-v="tb">上下</button><button data-v="quad">四宫格</button><button data-v="pip">画中画</button>
+        </div></div>
+        <div class="row"><label>亮度</label><input type="range" id="bright" min="20" max="130" value="100"><span class="val" id="brightV">100%</span></div>
+        <div class="row"><label>电源</label>
+          <button class="btn" id="btnOn">开机</button>
+          <button class="btn danger" id="btnOff">关机</button>
+        </div>
+        <div class="hint">布局 / 亮度 / 电源指令同样经 MQTT 实时下发，大屏即时响应。</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>直发主题（高级）<span class="tag">RAW TOPIC</span></h3>
+      <div class="row"><input type="text" id="rawTopic" value="led/studio/text" style="flex:1"></div>
+      <div class="row"><textarea id="rawPayload" placeholder="原始 payload…" style="min-height:52px"></textarea></div>
+      <div class="row"><button class="btn" id="btnRaw">发布到主题</button>
+        <span class="hint" style="margin-left:auto">text/image 收纯文本；cmd 收 JSON 命令</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="foot">VISIONMAX LED STUDIO · REMOTE PUBLISHER · MQTT 3.1.1 OVER WEBSOCKET · ZERO DEPENDENCY</div>
+
+<script>
+/* ============ 工具 ============ */
+const $=s=>document.querySelector(s);
+const lsGet=k=>{try{return localStorage.getItem(k)}catch(e){return null}};
+const lsSet=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
+const nowStr=()=>{const d=new Date(),p=n=>String(n).padStart(2,'0');return p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds())};
+const fmtKB=n=>n<1024?n+' B':(n/1024).toFixed(1)+' KB';
+
+function logLine(msg,cls){
+  const box=$('#log'),d=document.createElement('div');
+  if(cls)d.className=cls;
+  d.textContent='['+nowStr()+'] '+msg;
+  box.appendChild(d);
+  while(box.children.length>100)box.removeChild(box.firstChild);
+  box.scrollTop=box.scrollHeight;
+}
+
+/* ============ MQTT 3.1.1 最小客户端（原生 WebSocket） ============ */
+const CMD_TOPIC='led/studio/cmd';
+const mqtt={ws:null,on:false,want:false,pingT:null,retryT:null,url:''};
+
+function concatU8(a,b){const r=new Uint8Array(a.length+b.length);r.set(a,0);r.set(b,a.length);return r}
+function strBytes(s){const b=new TextEncoder().encode(s);return[(b.length>>8)&255,b.length&255,...b]}
+function remLen(n){const o=[];do{let d=n%128;n=Math.floor(n/128);if(n>0)d|=128;o.push(d)}while(n>0);return o}
+function pkt(type,flags,body){return new Uint8Array([(type<<4)|flags,...remLen(body.length),...body])}
+
+function setStatus(cls,txt){
+  $('#dot').className='dot '+cls;
+  $('#state').textContent=txt;
+  $('#btnTxt').disabled=$('#btnImgUrl').disabled=$('#btnImgLocal').disabled=
+  $('#btnVidUrl').disabled=$('#btnVidLocal').disabled=$('#btnRaw').disabled=(cls!=='ok');
+}
+
+function mqttConnect(url){
+  if(url===undefined)url=$('#url').value;
+  url=String(url).trim();
+  if(!/^wss?:\/\//i.test(url)){logLine('MQTT 地址需以 ws:// 或 wss:// 开头','err');return}
+  mqttDisconnect(true);
+  mqtt.want=true;mqtt.url=url;setStatus('wait','连接中');
+  logLine('正在连接 '+url.split('?')[0]+' …');
+  let ws;
+  try{ws=new WebSocket(url,'mqtt')}
+  catch(e){setStatus('err','地址无效');logLine('WebSocket 创建失败：'+e.message,'err');mqtt.want=false;return}
+  mqtt.ws=ws;ws.binaryType='arraybuffer';
+  ws.onopen=()=>{
+    if(mqtt.ws!==ws)return;
+    const cid='ledsender-'+Math.random().toString(16).slice(2,10);
+    const vh=[0,4,0x4D,0x51,0x54,0x54,4,0x02,0,30]; /* MQTT · level4 · clean session · keepalive 30s */
+    try{ws.send(pkt(1,0,new Uint8Array([...vh,...strBytes(cid)])))}catch(e){logLine('CONNECT 发送失败','err')}
+  };
+  ws.onmessage=ev=>{
+    if(mqtt.ws!==ws)return;
+    const u8=ev.data instanceof ArrayBuffer?new Uint8Array(ev.data):new TextEncoder().encode(String(ev.data));
+    mqttParse(u8);
+  };
+  ws.onerror=()=>logLine('WebSocket 错误（检查地址 / 网络）','err');
+  ws.onclose=()=>{
+    if(mqtt.ws!==ws)return;
+    mqtt.ws=null;clearInterval(mqtt.pingT);
+    if(mqtt.want){setStatus('err','已断开');logLine('连接关闭，3s 后自动重连','warn');
+      clearTimeout(mqtt.retryT);
+      mqtt.retryT=setTimeout(()=>{if(mqtt.want)mqttConnect(url)},3000)}
+    else setStatus('off','未连接');
+  };
+}
+
+function mqttDisconnect(silent){
+  mqtt.want=false;clearTimeout(mqtt.retryT);clearInterval(mqtt.pingT);
+  if(mqtt.ws){const w=mqtt.ws;w.onclose=w.onerror=w.onmessage=null;try{w.close()}catch(e){}mqtt.ws=null}
+  mqtt.on=false;
+  if(!silent){setStatus('off','未连接');logLine('已手动断开','warn')}
+}
+
+function mqttParse(u8){
+  let buf=u8,off=0;
+  while(true){
+    if(buf.length-off<2)break;
+    let rl=0,mul=1,i=off+1,complete=true;
+    while(true){
+      if(i>=buf.length){complete=false;break}
+      const b=buf[i++];rl+=(b&127)*mul;mul*=128;
+      if(!(b&128))break;
+    }
+    if(!complete||buf.length-i<rl)break;
+    try{mqttPacketIn(buf[off],buf.subarray(i,i+rl))}catch(e){}
+    off=i+rl;
+  }
+}
+
+function mqttPacketIn(b1,body){
+  const type=b1>>4;
+  if(type===2){ /* CONNACK */
+    if(body[1]===0){
+      mqtt.on=true;setStatus('ok','已连接');
+      logLine('已连接 broker · 可向 led/studio/# 投送','ok');
+      clearInterval(mqtt.pingT);
+      mqtt.pingT=setInterval(()=>{
+        if(mqtt.ws&&mqtt.ws.readyState===1){try{mqtt.ws.send(pkt(12,0,new Uint8Array(0)))}catch(e){}}
+      },25000);
+    }else{mqtt.want=false;setStatus('err','拒绝('+body[1]+')');logLine('broker 拒绝连接，返回码 '+body[1],'err')}
+  }
+  /* 13=PINGRESP / 4=PUBACK 忽略 */
+}
+
+/* QoS0 发布（注意：MQTT 中仅 topic 有长度前缀，payload 为裸 UTF-8 字节） */
+function mqttPublish(topic,payload){
+  if(!mqtt.on||!mqtt.ws||mqtt.ws.readyState!==1){logLine('未连接 broker，投送失败','err');return false}
+  try{
+    const body=new Uint8Array([...strBytes(topic),...new TextEncoder().encode(payload)]);
+    mqtt.ws.send(pkt(3,0,body));
+    logLine('PUBLISH '+topic+' · '+fmtKB(body.length),'ok');
+    return true;
+  }catch(e){logLine('发布失败：'+e.message,'err');return false}
+}
+
+/* cmd JSON 快捷投送 */
+function sendCmd(obj){
+  if(!mqtt.on){logLine('请先连接 broker','err');return}
+  const cell=$('#cell').value;
+  if(cell!=='')obj.cell=+cell;
+  mqttPublish(CMD_TOPIC,JSON.stringify(obj));
+}
+
+/* ============ UI ============ */
+/* 选项卡 */
+$('#tabs').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  $$('#tabs button').forEach(x=>x.classList.toggle('active',x===b));
+  document.querySelectorAll('.tabpane').forEach(p=>p.classList.toggle('active',p.id==='pane-'+b.dataset.t));
+});
+function $$(s){return[...document.querySelectorAll(s)]}
+
+/* 连接 */
+$('#btnConn').onclick=()=>{lsSet('vmx_pub_url',$('#url').value.trim());mqttConnect()};
+$('#btnDisc').onclick=()=>mqttDisconnect(false);
+$('#auto').onchange=e=>{lsSet('vmx_pub_auto',e.target.checked?'1':'0');if(e.target.checked)mqttConnect();else mqttDisconnect(false)};
+
+/* 文字 */
+$('#txtSize').oninput=e=>$('#txtSizeV').textContent=e.target.value;
+$('#colors').addEventListener('click',e=>{
+  const s=e.target.closest('.swatch');if(!s)return;
+  $$('#colors .swatch').forEach(x=>x.classList.toggle('active',x===s));
+});
+$('#txtAlign').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  $$('#txtAlign button').forEach(x=>x.classList.toggle('active',x===b));
+});
+$('#btnTxt').onclick=()=>{
+  const content=$('#txtContent').value.replace(/\r/g,'');
+  if(!content.trim()){logLine('文字内容为空','warn');return}
+  sendCmd({type:'text',content,
+    color:$('#colors .swatch.active').dataset.c,
+    size:+$('#txtSize').value,
+    align:$('#txtAlign button.active').dataset.v,
+    glow:$('#txtGlow').checked,
+    scroll:$('#txtScroll').checked});
+  logLine('已投送文字：'+content.split('\n')[0].slice(0,20)+'…','ok');
+};
+
+/* 图片 */
+let imgData=null;
+$('#imgFit').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  $$('#imgFit button').forEach(x=>x.classList.toggle('active',x===b));
+});
+$('#btnImgUrl').onclick=()=>{
+  const url=$('#imgUrl').value.trim();
+  if(!url){logLine('请填写图片 URL','warn');return}
+  sendCmd({type:'image',url,fit:$('#imgFit button.active').dataset.v});
+  logLine('已投送图片 URL','ok');
+};
+$('#imgFile').onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  $('#imgInfo').innerHTML='正在压缩 <span class="kb">'+fmtKB(f.size)+'</span> …';
+  try{
+    imgData=await compressImage(f,1280,.78);
+    $('#imgPrev').innerHTML='';
+    const img=new Image();img.src=imgData;$('#imgPrev').appendChild(img);
+    $('#imgInfo').innerHTML='压缩完成：<span class="kb">'+fmtKB(new TextEncoder().encode(imgData).length)+'</span>（原始 '+fmtKB(f.size)+'）';
+    $('#btnImgLocal').disabled=!mqtt.on;
+  }catch(err){logLine('图片压缩失败：'+err.message,'err');$('#imgInfo').textContent='压缩失败，请换一张图片'}
+};
+$('#btnImgLocal').onclick=()=>{
+  if(!imgData){logLine('请先选择本地图片','warn');return}
+  sendCmd({type:'image',url:imgData,fit:$('#imgFit button.active').dataset.v});
+  logLine('已投送本地图片','ok');
+};
+function compressImage(file,maxDim,q){
+  return new Promise((res,rej)=>{
+    const fr=new FileReader();
+    fr.onerror=()=>rej(new Error('读取文件失败'));
+    fr.onload=()=>{
+      const img=new Image();
+      img.onerror=()=>rej(new Error('图片解码失败'));
+      img.onload=()=>{
+        let w=img.naturalWidth,h=img.naturalHeight;
+        const k=Math.min(1,maxDim/Math.max(w,h));
+        w=Math.round(w*k);h=Math.round(h*k);
+        const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+        cv.getContext('2d').drawImage(img,0,0,w,h);
+        res(cv.toDataURL('image/jpeg',q));
+      };
+      img.src=fr.result;
+    };
+    fr.readAsDataURL(file);
+  });
+}
+
+/* 视频 */
+let vidData=null;
+$('#btnVidUrl').onclick=()=>{
+  const url=$('#vidUrl').value.trim();
+  if(!url){logLine('请填写视频 URL','warn');return}
+  sendCmd({type:'video',url,muted:$('#vidMuted').checked,loop:$('#vidLoop').checked});
+  logLine('已投送视频 URL','ok');
+};
+$('#vidFile').onchange=e=>{
+  const f=e.target.files[0];if(!f)return;
+  const LIMIT=3*1024*1024,MAX=25*1024*1024;
+  if(f.size>MAX){
+    $('#vidInfo').innerHTML='<span style="color:var(--err)">文件过大（'+fmtKB(f.size)+'），超过 25MB 拒绝投送，请用 URL 方式</span>';
+    vidData=null;$('#btnVidLocal').disabled=true;return;
+  }
+  $('#vidInfo').innerHTML='读取中 <span class="kb">'+fmtKB(f.size)+'</span>'+(f.size>LIMIT?'（偏大，broker 可能拒绝）':'')+' …';
+  const fr=new FileReader();
+  fr.onload=()=>{
+    vidData=fr.result;
+    $('#vidPrev').innerHTML='';
+    const v=document.createElement('video');v.src=vidData;v.muted=true;v.controls=true;
+    $('#vidPrev').appendChild(v);
+    $('#btnVidLocal').disabled=!mqtt.on;
+    $('#vidInfo').innerHTML='已就绪：<span class="kb">'+fmtKB(f.size)+'</span>'+(f.size>LIMIT?' · 偏大，若大屏未收到请改用 URL':'');
+  };
+  fr.onerror=()=>{logLine('视频读取失败','err')};
+  fr.readAsDataURL(f);
+};
+$('#btnVidLocal').onclick=()=>{
+  if(!vidData){logLine('请先选择本地视频','warn');return}
+  sendCmd({type:'video',url:vidData,muted:$('#vidMuted').checked,loop:$('#vidLoop').checked});
+  logLine('已投送本地视频','ok');
+};
+
+/* 屏控 */
+$('#laySeg').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  $$('#laySeg button').forEach(x=>x.classList.toggle('active',x===b));
+  sendCmd({type:'layout',layout:b.dataset.v});
+});
+$('#bright').oninput=e=>$('#brightV').textContent=e.target.value+'%';
+$('#bright').onchange=e=>sendCmd({type:'bright',value:+e.target.value});
+$('#btnOn').onclick=()=>sendCmd({type:'power',on:true});
+$('#btnOff').onclick=()=>sendCmd({type:'power',on:false});
+
+/* 原始发布 */
+$('#btnRaw').onclick=()=>{
+  const t=$('#rawTopic').value.trim(),p=$('#rawPayload').value;
+  if(!t){logLine('请填写主题','warn');return}
+  if(mqttPublish(t,p))logLine('原始投送完成','ok');
+};
+
+/* ============ 启动 ============ */
+(function init(){
+  const saved=lsGet('vmx_pub_url');
+  if(saved)$('#url').value=saved;
+  $('#auto').checked=lsGet('vmx_pub_auto')!=='0';
+  setStatus('off','未连接');
+  if($('#auto').checked)mqttConnect();
+  logLine('投送台就绪 · 连接后即可向大屏推送文字 / 图片 / 视频');
+})();
+</script>
+</body>
+</html>

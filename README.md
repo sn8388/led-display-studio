@@ -42,18 +42,33 @@
 - URL 参数：`?mqtt=<wss地址>` 可覆盖 broker 地址，`?mqtt=off` 关闭自动连接；面板勾选「自动连接」的状态保存在 localStorage。
 - 断线自动重连（3s），25s 心跳保活。
 
+## 投送台（sender.html）
+
+配套的可视化投送页面：连接同一 broker 后，即可把**文字 / 图片 / 视频**一键推送到大屏。
+
+- **文字**：内容、字号、颜色、对齐、发光、跑马灯
+- **图片**：URL 直推；本地图片自动压缩（最长边 ≤1280px，JPEG ~78%）后以 dataURL 投送，附预览与体积显示
+- **视频**：URL 直推（静音 / 循环可选）；本地视频以 dataURL 投送（建议 ≤3MB，>25MB 拒绝并提示改用 URL）
+- **屏控**：布局（全屏 / 左右 / 上下 / 四宫格 / 画中画）、亮度、电源开关
+- **目标分区**：可指定投到大屏当前布局的第 n 分区，或全屏投放
+- **原始发布**：可向任意 `led/studio/*` 主题手动发布 payload
+
 ## 使用
 
-直接用浏览器打开 `led-display-studio.html` 即可，无需构建、无需联网。
+直接用浏览器打开 `led-display-studio.html`（大屏）与 `sender.html`（投送台）即可，无需构建、无需联网。
+两页都预填同一 broker，连接后即可互推。
+
+在线访问（GitHub Pages）：`https://sn8388.github.io/led-display-studio/led-display-studio.html` 与 `https://sn8388.github.io/led-display-studio/sender.html`。
 
 ## 技术
 
-原生 HTML + CSS + JavaScript（Canvas），无任何第三方依赖。
+原生 HTML + CSS + JavaScript（Canvas），无任何第三方依赖。MQTT 3.1.1 客户端为原生 WebSocket 手写实现（CONNECT / SUBSCRIBE / PUBLISH / PING，varint 剩余长度编解码）。
 
 ## 文件结构
 
 ```
-led-display-studio.html   # 主程序（单文件）
+led-display-studio.html   # 大屏主程序（单文件）
+sender.html               # 投送台（文字/图片/视频推送）
 README.md                 # 本说明
 .gitignore
 ```
