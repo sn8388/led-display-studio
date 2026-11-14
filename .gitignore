@@ -1,0 +1,14 @@
+# WorkBuddy 工作区元数据
+.workbuddy/
+
+# 临时预览 / 测试产物
+*.png
+*.log
+_test*.html
+_testdom.txt
+_dom.txt
+_syntax_check.js
+_preview*.png
+
+# 依赖
+node_modules/
