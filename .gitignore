@@ -4,6 +4,7 @@
 # 临时预览 / 测试产物
 *.png
 *.log
+_*
 _test*.html
 _testdom.txt
 _dom.txt

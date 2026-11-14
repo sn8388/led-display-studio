@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VISIONMAX · 无人机仿真 UAV SIMULATOR</title>
+<style>
+:root{
+  --bg:#080d16;--panel:#111a29;--panel2:#0c1421;--line:#1e2c42;
+  --txt:#dce7f7;--dim:#8296b2;--acc:#4dabf7;--ok:#51cf66;--warn:#ffd43b;--err:#ff6b6b;--cyan:#22d3ee
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif;min-height:100vh;overflow-x:hidden}
+.top{display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--line);background:rgba(12,20,33,.94)}
+.logo{width:30px;height:30px;border-radius:7px;background:linear-gradient(135deg,#22d3ee,#3b82f6);display:flex;align-items:center;justify-content:center;font-weight:800;color:#04101f}
+.top h1{font-size:15px;letter-spacing:1px}
+.top h1 small{display:block;font-size:9px;color:var(--dim);letter-spacing:3px;font-weight:400}
+.nav{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.nav a{color:var(--acc);text-decoration:none;border:1px solid var(--line);padding:6px 11px;border-radius:8px;font-size:12px;background:var(--panel2)}
+.nav a:hover{border-color:var(--acc)}
+.wrap{display:grid;grid-template-columns:1fr 310px;gap:14px;padding:14px 20px;max-width:1500px;margin:0 auto}
+@media(max-width:980px){.wrap{grid-template-columns:1fr}}
+.stage{position:relative;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#050a12;min-height:560px}
+#scene{display:block;width:100%;height:100%;min-height:560px}
+.hud{position:absolute;pointer-events:none;font:11px/1.6 Consolas,Menlo,monospace}
+.hud.tl{top:14px;left:16px;color:#9fd8ff;text-shadow:0 0 6px rgba(0,0,0,.9)}
+.hud.tl b{font-size:20px;color:#fff;letter-spacing:1px}
+.hud.tr{top:14px;right:16px;text-align:right;color:#8fe3b0}
+.hud.bl{bottom:14px;left:16px;color:#8296b2}
+.tagbox{display:inline-block;border:1px solid rgba(120,190,255,.35);background:rgba(8,20,36,.6);padding:5px 9px;border-radius:6px;margin-bottom:6px}
+.crosshair{position:absolute;left:50%;top:50%;width:46px;height:46px;transform:translate(-50%,-50%);opacity:.32;pointer-events:none}
+.crosshair:before,.crosshair:after{content:"";position:absolute;background:#7fd4ff}
+.crosshair:before{left:50%;top:0;width:1px;height:100%}.crosshair:after{top:50%;left:0;height:1px;width:100%}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:13px;margin-bottom:12px}
+.card h3{font-size:12px;letter-spacing:1px;margin-bottom:10px;display:flex;align-items:center;gap:7px}
+.card h3 .tag{margin-left:auto;color:var(--dim);font-size:10px;letter-spacing:2px}
+.dot{width:9px;height:9px;border-radius:50%;background:#5a6575;display:inline-block;flex:none}
+.dot.ok{background:var(--ok);box-shadow:0 0 8px var(--ok)}.dot.err{background:var(--err)}.dot.wait{background:var(--warn);animation:bl 1s infinite}
+@keyframes bl{50%{opacity:.35}}
+.row{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12px}
+.row label{color:var(--dim);flex:none}
+input[type=url],input[type=text],select{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:7px;padding:7px 9px;font-size:12px;font-family:inherit;outline:none}
+input:focus{border-color:var(--acc)}
+.btn{border:1px solid var(--line);background:var(--panel2);color:var(--txt);border-radius:7px;padding:7px 11px;font-size:12px;cursor:pointer;font-family:inherit}
+.btn:hover{border-color:#3b4c68}.btn.solid{background:var(--acc);border-color:var(--acc);color:#04101f;font-weight:700}
+.btn.cyan{background:var(--cyan);border-color:var(--cyan);color:#04101f;font-weight:700}
+.btn.danger{color:var(--err)}.btn.on{border-color:var(--ok);color:var(--ok)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.grid2 .btn{width:100%}
+.tele{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.tele .t{background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:7px 9px}
+.tele .t span{display:block;color:var(--dim);font-size:10px;letter-spacing:1px}
+.tele .t b{font-size:15px;color:#bfe4ff;font-family:Consolas,monospace}
+.bar{height:5px;background:#1b2940;border-radius:3px;overflow:hidden;margin-top:5px}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,#22d3ee,#51cf66);transition:width .3s}
+.log{background:#050a12;border:1px solid var(--line);border-radius:7px;padding:7px;height:132px;overflow:auto;font:11px/1.65 Consolas,Menlo,monospace;color:#9fb0c8}
+.log .ok{color:#7ee79a}.log .warn{color:#ffd43b}.log .err{color:#ff8a8a}
+.hint{font-size:10.5px;color:#5f7089;line-height:1.65;margin-top:6px}
+.foot{text-align:center;color:#3a4a63;font-size:10px;padding:6px 0 18px;letter-spacing:1px}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="logo">U</div>
+  <h1>VISIONMAX 无人机仿真<small>UAV SIMULATOR · GLB MODEL</small></h1>
+  <div class="nav">
+    <a href="wurenji-control.html" target="_blank">🎮 控制页 ↗</a>
+    <a href="led-display-studio.html" target="_blank">📺 大屏 ↗</a>
+    <a href="sender.html" target="_blank">📤 投送台 ↗</a>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="stage">
+    <canvas id="scene"></canvas>
+    <div class="crosshair"></div>
+    <div class="hud tl">
+      <div class="tagbox" id="hudMode">MODE · IDLE</div>
+      <div><b id="hudAlt">0.0</b> m ALT</div>
+      <div id="hudSpd">0.0 m/s · GND 0.0</div>
+    </div>
+    <div class="hud tr">
+      <div>GPS 12 · RTK FIX</div><div id="hudCoord">N 31.2304  E 121.4737</div>
+      <div id="hudAtt">P 0.0°  R 0.0°  Y 0.0°</div>
+    </div>
+    <div class="hud bl">
+      <div id="hudModel">MODEL · DRONE.GLB  ·  352 TRI  ·  CANVAS 3D</div>
+      <div>W/S 前后 · A/D 左右 · ↑/↓ 升降 · Q/E 偏航 · 空格 起飞/降落</div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <h3>飞行状态<span class="tag">TELEMETRY</span></h3>
+      <div class="tele">
+        <div class="t"><span>高度 ALT</span><b id="tAlt">0.0 m</b></div>
+        <div class="t"><span>速度 SPD</span><b id="tSpd">0.0 m/s</b></div>
+        <div class="t"><span>电量 BAT</span><b id="tBat">100%</b><div class="bar"><i id="batBar" style="width:100%"></i></div></div>
+        <div class="t"><span>转速 RPM</span><b id="tRpm">0%</b></div>
+        <div class="t"><span>航向 YAW</span><b id="tYaw">0°</b></div>
+        <div class="t"><span>云台 GIMBAL</span><b id="tGim">0°</b></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>本机快捷控制<span class="tag">LOCAL CTRL</span></h3>
+      <div class="grid2">
+        <button class="btn cyan" id="btnTakeoff">一键起飞</button>
+        <button class="btn" id="btnLand">降落</button>
+        <button class="btn" id="btnRtl">返航</button>
+        <button class="btn danger" id="btnEstop">急停悬停</button>
+      </div>
+      <div class="row" style="margin-top:9px"><button class="btn" id="btnCast" style="flex:1">📺 投屏到大屏：关</button></div>
+      <div class="row"><button class="btn on" id="btnOrbit" style="flex:1">🔄 环绕视角：开</button></div>
+      <div class="hint">投屏开启后会把无人机画面以 JPEG 推送到 <b>led/studio/image</b>，大屏页面即可实时显示。</div>
+    </div>
+
+    <div class="card">
+      <h3><span class="dot" id="mqDot"></span><span id="mqState">未连接</span><span class="tag">MQTT</span></h3>
+      <div class="row"><input type="url" id="mqUrl" value="wss://2121166752201678848.app.workbuddy.host/mqtt?sharecode=7PPU2UMG6J"></div>
+      <div class="grid2"><button class="btn solid" id="btnConn">连接</button><button class="btn danger" id="btnDisc">断开</button></div>
+      <div class="hint">订阅 <b>uav/cmd</b> 接收控制指令，周期发布 <b>uav/telemetry</b> 遥测。</div>
+    </div>
+
+    <div class="card">
+      <h3>运行日志<span class="tag">LOG</span></h3>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+</div>
+<div class="foot">VISIONMAX UAV SIMULATOR · PROCEDURAL GLTF 2.0 GLB · CANVAS 3D RENDERER · MQTT 3.1.1 · ZERO DEPENDENCY</div>
+
+<script src="mqtt-client.js"></script>
+<script src="drone-data.js"></script>
+<script>
+/* ================= 工具 ================= */
+const $=s=>document.querySelector(s);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const nowStr=()=>{const d=new Date(),p=n=>String(n).padStart(2,'0');return p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds())};
+function log(m,c){const b=$('#log'),d=document.createElement('div');if(c)d.className=c;d.textContent='['+nowStr()+'] '+m;b.appendChild(d);while(b.children.length>80)b.removeChild(b.firstChild);b.scrollTop=b.scrollHeight}
+
+/* ================= GLB 解析 ================= */
+function parseGLB(arrayBuffer){
+  const dv=new DataView(arrayBuffer);
+  if(dv.getUint32(0,true)!==0x46546C67)throw new Error('不是合法 GLB 文件（magic 错误）');
+  if(dv.getUint32(4,true)!==2)throw new Error('仅支持 glTF 2.0');
+  let off=12,json=null,bin=null;
+  while(off<arrayBuffer.byteLength){
+    const len=dv.getUint32(off,true),type=dv.getUint32(off+4,true);off+=8;
+    const chunk=new Uint8Array(arrayBuffer,off,len);
+    if(type===0x4E4F534A)json=JSON.parse(new TextDecoder().decode(chunk));
+    else if(type===0x004E4942)bin=chunk;
+    off+=len;
+  }
+  if(!json||!bin)throw new Error('GLB 缺少 JSON / BIN chunk');
+  const view=new DataView(bin.buffer,bin.byteOffset,bin.byteLength);
+  function acc(i){
+    const a=json.accessors[i],bv=json.bufferViews[a.bufferView];
+    const base=(bv.byteOffset||0)+(a.byteOffset||0);
+    const nc={SCALAR:1,VEC2:2,VEC3:3,VEC4:4,MAT4:16}[a.type]||1;
+    const size=a.componentType===5126?4:a.componentType===5125?4:a.componentType===5123?2:1;
+    const out=new Float64Array(a.count*nc);
+    for(let k=0;k<out.length;k++){
+      const o=base+k*size;
+      out[k]=a.componentType===5126?view.getFloat32(o,true):
+             a.componentType===5125?view.getUint32(o,true):
+             a.componentType===5123?view.getUint16(o,true):
+             a.componentType===5121?bin[o]:0;
+    }
+    return out;
+  }
+  const prims=[];
+  json.nodes.forEach((n,ni)=>{
+    if(n.mesh===undefined)return;
+    json.meshes[n.mesh].primitives.forEach(p=>{
+      const mat=(json.materials||[])[p.material]||{pbrMetallicRoughness:{baseColorFactor:[.6,.6,.6,1]}};
+      prims.push({
+        node:ni,name:n.name||'',pos:acc(p.attributes.POSITION),nor:acc(p.attributes.NORMAL),idx:acc(p.indices),
+        color:(mat.pbrMetallicRoughness.baseColorFactor||[.6,.6,.6,1]).slice(0,3),
+        emissive:mat.emissiveFactor||[0,0,0],
+        metallic:(mat.pbrMetallicRoughness.metallicFactor||0),
+        alpha:(mat.pbrMetallicRoughness.baseColorFactor||[1,1,1,1])[3]
+      });
+    });
+  });
+  return{nodes:json.nodes,prims,root:json.scenes[json.scene||0].nodes[0]};
+}
+
+/* ================= 4x4 矩阵 / 3D 数学（列主序） ================= */
+const I=()=>[1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1];
+function mul(a,b){const o=new Float64Array(16);for(let c=0;c<4;c++)for(let r=0;r<4;r++)o[c*4+r]=a[r]*b[c*4]+a[4+r]*b[c*4+1]+a[8+r]*b[c*4+2]+a[12+r]*b[c*4+3];return o}
+function T(x,y,z){const m=I();m[12]=x;m[13]=y;m[14]=z;return m}
+function RY(a){const m=I(),c=Math.cos(a),s=Math.sin(a);m[0]=c;m[2]=-s;m[8]=s;m[10]=c;return m}
+function RX(a){const m=I(),c=Math.cos(a),s=Math.sin(a);m[5]=c;m[9]=-s;m[6]=s;m[10]=c;return m}
+function RZ(a){const m=I(),c=Math.cos(a),s=Math.sin(a);m[0]=c;m[4]=-s;m[1]=s;m[5]=c;return m}
+const chain=(...ms)=>ms.reduce((a,m)=>mul(a,m),I());
+function sub3(a,b){return[a[0]-b[0],a[1]-b[1],a[2]-b[2]]}
+function cross3(a,b){return[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]]}
+function dot3(a,b){return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]}
+function norm3(v){const l=Math.hypot(...v)||1;return[v[0]/l,v[1]/l,v[2]/l]}
+function lookAt(eye,center,up){
+  const z=norm3(sub3(eye,center)),x=norm3(cross3(up,z)),y=cross3(z,x);
+  return new Float64Array([x[0],y[0],z[0],0, x[1],y[1],z[1],0, x[2],y[2],z[2],0, -dot3(x,eye),-dot3(y,eye),-dot3(z,eye),1]);
+}
+function xf(m,p){return[
+  m[0]*p[0]+m[4]*p[1]+m[8]*p[2]+m[12],
+  m[1]*p[0]+m[5]*p[1]+m[9]*p[2]+m[13],
+  m[2]*p[0]+m[6]*p[1]+m[10]*p[2]+m[14]]}
+function xfN(m,n){return norm3([m[0]*n[0]+m[4]*n[1]+m[8]*n[2],m[1]*n[0]+m[5]*n[1]+m[9]*n[2],m[2]*n[0]+m[6]*n[1]+m[10]*n[2]])}
+
+/* ================= 飞行状态 ================= */
+const BROKER='wss://2121166752201678848.app.workbuddy.host/mqtt?sharecode=7PPU2UMG6J';
+const S={
+  flying:false,armed:false,mode:'IDLE',
+  pos:{x:0,y:0,z:0},vel:{x:0,y:0,z:0},
+  yaw:0,pitch:0,roll:0,
+  ax:{pitch:0,roll:0,yaw:0,throttle:.5},
+  battery:100,rpm:0,gimbal:0,prop:0,
+  targetAlt:0,cast:false,orbit:true,estop:false,
+  home:{x:0,z:0}
+};
+let MODEL=null;
+
+/* ================= 场景渲染 ================= */
+const cv=$('#scene'),ctx=cv.getContext('2d');
+let W=0,H=0,DPR=1;
+function resize(){
+  const r=cv.getBoundingClientRect();DPR=Math.min(2,window.devicePixelRatio||1);
+  W=r.width;H=r.height;cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize',resize);
+
+const LIGHT=norm3([.45,.86,.55]);
+function gamma(v){return Math.round(255*Math.pow(clamp(v,0,1),1/2.2))}
+
+function render(){
+  if(!W||!H)return;
+  ctx.clearRect(0,0,W,H);
+  /* 天空 */
+  const sky=ctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,'#0a1a30');sky.addColorStop(.55,'#0d2138');sky.addColorStop(1,'#07111f');
+  ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+  if(!MODEL)return;
+
+  /* 相机 */
+  let ang=.62;
+  if(S.orbit)ang+=performance.now()*.00008;
+  const eye=[Math.sin(ang)*4.3,2.15+S.pos.y*.32,Math.cos(ang)*4.3];
+  const center=[S.pos.x*.35,.55+S.pos.y*.55,S.pos.z*.35];
+  const view=lookAt(eye,center,[0,1,0]);
+  const f=1/Math.tan(52*Math.PI/180/2),scl=H/2*f;
+  const proj=p=>{
+    const v=xf(view,p),d=-v[2];
+    if(d<.05)return null;
+    return{x:W/2+v[0]/d*scl,y:H/2-v[1]/d*scl,d};
+  };
+
+  /* 地面网格 */
+  ctx.lineWidth=1;
+  for(let k=-8;k<=8;k++){
+    const a=proj([k*.5,-.02,-4]),b=proj([k*.5,-.02,4]);
+    const c=proj([-4,-.02,k*.5]),d=proj([4,-.02,k*.5]);
+    ctx.strokeStyle=(k%2===0)?'rgba(80,150,210,.16)':'rgba(70,130,190,.08)';
+    if(a&&b){ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke()}
+    if(c&&d){ctx.beginPath();ctx.moveTo(c.x,c.y);ctx.lineTo(d.x,d.y);ctx.stroke()}
+  }
+  /* 地面阴影 */
+  const sp=proj([S.pos.x,-.015,S.pos.z]);
+  if(sp){
+    const rr=clamp(.62/(sp.d*.22),.35,1.5)*scl*.15,al=clamp(.42-S.pos.y*.02,.08,.42);
+    ctx.save();ctx.translate(sp.x,sp.y);ctx.scale(1,.33);
+    const g=ctx.createRadialGradient(0,0,0,0,0,rr);
+    g.addColorStop(0,'rgba(0,0,0,'+al+')');g.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,rr,0,Math.PI*2);ctx.fill();ctx.restore();
+  }
+
+  /* 机体根变换：位置 + 姿态 */
+  const root=chain(
+    T(S.pos.x,S.pos.y,S.pos.z),
+    RY(S.yaw),RX(S.pitch),RZ(S.roll)
+  );
+  /* 世界矩阵 */
+  const WM=[];
+  (function rec(i,parent){
+    const n=MODEL.nodes[i];
+    let local=n.matrix?Float64Array.from(n.matrix):I();
+    if(n.name&&n.name.indexOf('PROP_')===0)local=mul(local,RY(S.prop*(i%2?1:-1)));
+    if(n.name==='GIMBAL'||n.name==='CAMERA'||n.name==='LENS')local=mul(T(0,0,0),mul(RX(S.gimbal),local));
+    const w=mul(parent,local);WM[i]=w;
+    (n.children||[]).forEach(c=>rec(c,w));
+  })(MODEL.root,root);
+
+  /* 收集并排序三角形 */
+  const tris=[];
+  for(const pr of MODEL.prims){
+    const M=WM[pr.node];if(!M)continue;
+    const P=[],N=[];
+    for(let k=0;k<pr.pos.length;k+=3){
+      P.push(proj(xf(M,[pr.pos[k],pr.pos[k+1],pr.pos[k+2]])));
+      N.push(xfN(M,[pr.nor[k],pr.nor[k+1],pr.nor[k+2]]));
+    }
+    for(let k=0;k<pr.idx.length;k+=3){
+      const a=pr.idx[k],b=pr.idx[k+1],c=pr.idx[k+2];
+      const pa=P[a],pb=P[b],pc=P[c];
+      if(!pa||!pb||!pc)continue;
+      /* 屏幕空间背面（保留双面绘制，降亮度） */
+      const area=(pb.x-pa.x)*(pc.y-pa.y)-(pc.x-pa.x)*(pb.y-pa.y);
+      const nn=N[a];
+      let diff=Math.max(0,dot3(nn,LIGHT));
+      const front=area<=0?1:.62; /* Canvas y 向下，CCW 反号 */
+      const sh=.30+.70*diff;
+      const sp2=Math.pow(diff,16)*.30*pr.metallic;
+      const R=gamma(pr.color[0]*sh+pr.emissive[0]*.85+sp2);
+      const G=gamma(pr.color[1]*sh+pr.emissive[1]*.85+sp2);
+      const B=gamma(pr.color[2]*sh+pr.emissive[2]*.85+sp2);
+      tris.push({z:(pa.d+pb.d+pc.d)/3,x1:pa.x,y1:pa.y,x2:pb.x,y2:pb.y,x3:pc.x,y3:pc.y,
+        fill:'rgba('+R+','+G+','+B+','+(pr.alpha*front).toFixed(2)+')'});
+    }
+  }
+  tris.sort((a,b)=>b.z-a.z); /* 远 → 近 */
+  for(const t of tris){
+    ctx.beginPath();ctx.moveTo(t.x1,t.y1);ctx.lineTo(t.x2,t.y2);ctx.lineTo(t.x3,t.y3);ctx.closePath();
+    ctx.fillStyle=t.fill;ctx.fill();
+    ctx.strokeStyle=t.fill;ctx.lineWidth=.55;ctx.stroke();
+  }
+  /* 螺旋桨旋转模糊盘 */
+  if(S.rpm>.05){
+    for(const n of MODEL.nodes){
+      if(!n.name||n.name.indexOf('PROP_')!==0)continue;
+      const i=MODEL.nodes.indexOf(n),M=WM[i];if(!M)continue;
+      const c=proj([M[12],M[13],M[14]]);if(!c)continue;
+      const r=.235*scl/c.d;
+      ctx.fillStyle='rgba(150,205,245,'+(.06+S.rpm*.10).toFixed(2)+')';
+      ctx.beginPath();ctx.ellipse(c.x,c.y,r,r*.30,0,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle='rgba(170,220,255,.22)';ctx.lineWidth=1;ctx.stroke();
+    }
+  }
+  /* 状态灯闪烁 */
+  const blink=(Math.sin(performance.now()*.006)+1)/2;
+  for(const n of MODEL.nodes){
+    if(!n.name||n.name.indexOf('LED_')!==0)continue;
+    const i=MODEL.nodes.indexOf(n),M=WM[i];if(!M)continue;
+    const c=proj([M[12],M[13],M[14]]);if(!c)continue;
+    const col=n.name==='LED_FRONT'?'81,207,102':'255,107,107';
+    const g=ctx.createRadialGradient(c.x,c.y,0,c.x,c.y,13);
+    g.addColorStop(0,'rgba('+col+','+(.35+blink*.45).toFixed(2)+')');g.addColorStop(1,'rgba('+col+',0)');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(c.x,c.y,13,0,Math.PI*2);ctx.fill();
+  }
+}
+
+/* ================= 物理 ================= */
+let last=performance.now(),hudT=0,telemT=0,castT=0;
+function physics(dt){
+  dt=Math.min(.05,dt);
+  const a=S.ax;
+  if(S.estop){S.vel.x=lerp(S.vel.x,0,dt*6);S.vel.z=lerp(S.vel.z,0,dt*6);S.vel.y=lerp(S.vel.y,0,dt*6)}
+  else if(S.flying){
+    const yawC=Math.cos(S.yaw),yawS=Math.sin(S.yaw);
+    const fwd=-a.pitch*3.0,right=a.roll*3.0;
+    const tx=fwd*yawS+right*yawC,tz=-fwd*yawC+right*yawS;
+    S.vel.x=lerp(S.vel.x,tx,dt*2.6);
+    S.vel.z=lerp(S.vel.z,tz,dt*2.6);
+    const wantVy=(a.throttle-.5)*2.6;
+    S.vel.y=lerp(S.vel.y,wantVy,dt*3);
+    S.yaw+=a.yaw*dt*1.6;
+    S.pitch=lerp(S.pitch,-a.pitch*.30,dt*4);
+    S.roll=lerp(S.roll,a.roll*.30,dt*4);
+    S.targetAlt=0;
+    S.battery=Math.max(0,S.battery-dt*.035);
+  }else{
+    S.vel.x=lerp(S.vel.x,0,dt*3);S.vel.z=lerp(S.vel.z,0,dt*3);
+    S.vel.y=lerp(S.vel.y,(S.targetAlt-S.pos.y)*1.5,dt*3);
+    S.pitch=lerp(S.pitch,0,dt*3);S.roll=lerp(S.roll,0,dt*3);
+  }
+  S.pos.x=clamp(S.pos.x+S.vel.x*dt,-18,18);
+  S.pos.z=clamp(S.pos.z+S.vel.z*dt,-18,18);
+  S.pos.y=clamp(S.pos.y+S.vel.y*dt,0,40);
+  if(S.mode==='RTL'){
+    const dx=S.home.x-S.pos.x,dz=S.home.z-S.pos.z,dist=Math.hypot(dx,dz);
+    S.vel.x=lerp(S.vel.x,clamp(dx,-2,2),dt*2);S.vel.z=lerp(S.vel.z,clamp(dz,-2,2),dt*2);
+    S.yaw=lerp(S.yaw,Math.atan2(dx,-dz),dt*2);
+    if(dist<.3){S.mode='LANDING';S.flying=false;S.targetAlt=0}
+  }
+  if(S.mode==='TAKEOFF'&&S.pos.y>1.45){S.mode='FLY';S.flying=true;S.vel.y=0;log('已达悬停高度 1.6m','ok')}
+  if((S.mode==='LANDING'||S.mode==='LAND')&&S.pos.y<.03){
+    S.flying=false;S.armed=false;S.mode='IDLE';S.rpm=0;S.vel={x:0,y:0,z:0};S.targetAlt=0;
+  }
+  const spd=Math.hypot(S.vel.x,S.vel.z);
+  const targetRpm=S.armed?(S.flying?.72+Math.abs(a.throttle-.5)*.5+spd*.04:(S.mode==='TAKEOFF'?.85:.32)):0;
+  S.rpm=lerp(S.rpm,targetRpm,dt*2.5);
+  S.prop+=dt*(6+S.rpm*52);
+  if(!S.armed)S.prop+=dt*0;
+}
+function hud(){
+  const spd=Math.hypot(S.vel.x,S.vel.y,S.vel.z);
+  $('#hudMode').textContent='MODE · '+S.mode+(S.estop?' / HOLD':'');
+  $('#hudAlt').textContent=S.pos.y.toFixed(1);
+  $('#hudSpd').textContent=spd.toFixed(1)+' m/s · GND '+Math.hypot(S.vel.x,S.vel.z).toFixed(1);
+  $('#hudAtt').textContent='P '+(S.pitch*57.3).toFixed(1)+'°  R '+(S.roll*57.3).toFixed(1)+'°  Y '+((S.yaw*57.3)%360).toFixed(1)+'°';
+  $('#hudCoord').textContent='N '+(31.2304+S.pos.z*.00009).toFixed(4)+'  E '+(121.4737+S.pos.x*.00009).toFixed(4);
+  $('#tAlt').textContent=S.pos.y.toFixed(1)+' m';
+  $('#tSpd').textContent=spd.toFixed(1)+' m/s';
+  $('#tBat').textContent=S.battery.toFixed(0)+'%';
+  $('#batBar').style.width=S.battery+'%';
+  $('#tRpm').textContent=(S.rpm*100).toFixed(0)+'%';
+  $('#tYaw').textContent=((S.yaw*57.3)%360).toFixed(0)+'°';
+  $('#tGim').textContent=(S.gimbal*57.3).toFixed(0)+'°';
+}
+function loop(t){
+  const dt=(t-last)/1000;last=t;
+  physics(dt);render();
+  if(t-hudT>180){hudT=t;hud()}
+  if(t-telemT>500){telemT=t;publishTelemetry()}
+  if(S.cast&&t-castT>1400){castT=t;castFrame()}
+  requestAnimationFrame(loop);
+}
+
+/* ================= MQTT ================= */
+const mq=new MiniMQTT({
+  url:BROKER,filters:['uav/cmd','uav/control'],clientId:'uavsim',
+  onState:(c,txt)=>{$('#mqDot').className='dot '+c;$('#mqState').textContent=txt;
+    $('#btnTakeoff').disabled=$('#btnLand').disabled=$('#btnRtl').disabled=false;},
+  onLog:(m,c)=>log(m,c),
+  onMessage:(topic,payload)=>{
+    let c;try{c=JSON.parse(payload)}catch(e){c={type:payload.trim()}}
+    handleCmd(c,topic);
+  }
+});
+function publishTelemetry(){
+  if(!mq.connected)return;
+  mq.publishJSON('uav/telemetry',{
+    alt:+S.pos.y.toFixed(2),speed:+Math.hypot(S.vel.x,S.vel.y,S.vel.z).toFixed(2),
+    vx:+S.vel.x.toFixed(2),vy:+S.vel.y.toFixed(2),vz:+S.vel.z.toFixed(2),
+    battery:+S.battery.toFixed(1),yaw:+S.yaw.toFixed(3),pitch:+S.pitch.toFixed(3),roll:+S.roll.toFixed(3),
+    mode:S.mode,armed:S.armed,flying:S.flying,rpm:+S.rpm.toFixed(2),gimbal:+S.gimbal.toFixed(2),
+    x:+S.pos.x.toFixed(2),z:+S.pos.z.toFixed(2),ts:Date.now()
+  });
+}
+function handleCmd(c,topic){
+  if(!c||typeof c!=='object')return;
+  const type=String(c.type||c.action||'').toLowerCase();
+  log('CMD ← '+topic+' · '+(type||JSON.stringify(c).slice(0,40)));
+  if(type==='axes'||type==='stick'){
+    S.ax.pitch=clamp(+c.pitch||0,-1,1);S.ax.roll=clamp(+c.roll||0,-1,1);
+    S.ax.yaw=clamp(+c.yaw||0,-1,1);
+    if(c.throttle!==undefined)S.ax.throttle=clamp(+c.throttle,.0,1);
+  }
+  else if(type==='takeoff'||type==='arm'){
+    S.armed=true;S.flying=false;S.estop=false;S.mode='TAKEOFF';S.targetAlt=1.6;
+    S.battery=Math.max(1,S.battery);log('起飞指令 · 自动爬升至 1.6m','ok');
+  }
+  else if(type==='land'){S.mode='LANDING';S.flying=false;S.targetAlt=0;S.estop=false;log('降落中','ok')}
+  else if(type==='rtl'||type==='return'){S.mode='RTL';S.armed=true;S.flying=true;S.estop=false;log('返航中','ok')}
+  else if(type==='estop'||type==='hold'){S.estop=true;S.ax={pitch:0,roll:0,yaw:0,throttle:.5};log('急停 / 悬停','warn')}
+  else if(type==='resume'){S.estop=false;log('恢复控制','ok')}
+  else if(type==='gimbal'){S.gimbal=clamp((+c.value||0)*Math.PI/180,-1.2,.6)}
+  else if(type==='mode'){S.mode=String(c.value||'FLY').toUpperCase()}
+  else if(type==='yaw'){S.yaw=clamp(+c.value||0,-3.15,3.15)}
+  else if(type==='photo'){log('拍照指令 · 已记录一帧','ok');try{castFrame(true)}catch(e){}}
+  else if(type==='cast'){setCast(!!c.on)}
+  else if(type==='reset'){S.pos={x:0,y:0,z:0};S.vel={x:0,y:0,z:0};S.yaw=0;S.pitch=0;S.roll=0;S.battery=100;S.mode='IDLE';S.armed=false;S.flying=false;log('状态已重置','ok')}
+  else if(type==='ping'){mq.publishJSON('uav/pong',{ok:true,ts:Date.now()})}
+  else log('未知指令：'+type,'warn');
+}
+
+/* 投屏到大屏：把 canvas 缩略图作为 dataURL 发到 led/studio/image */
+function castFrame(force){
+  if(!mq.connected)return;
+  try{
+    const s=document.createElement('canvas');s.width=480;s.height=270;
+    const c=s.getContext('2d');
+    c.fillStyle='#050a12';c.fillRect(0,0,480,270);
+    c.drawImage(cv,0,0,cv.width,cv.height,0,0,480,270);
+    mq.publish('led/studio/image',s.toDataURL('image/jpeg',.62));
+    if(force)log('已回传一帧到大屏','ok');
+  }catch(e){log('投屏失败：'+e.message,'err')}
+}
+function setCast(on){
+  S.cast=!!on;$('#btnCast').textContent='📺 投屏到大屏：'+(on?'开':'关');
+  $('#btnCast').classList.toggle('on',on);
+  log('投屏 '+(on?'开启':'关闭'),on?'ok':'warn');
+  if(on)castFrame();
+}
+
+/* ================= UI ================= */
+$('#btnConn').onclick=()=>mq.connect($('#mqUrl').value.trim());
+$('#btnDisc').onclick=()=>mq.disconnect(false);
+$('#btnTakeoff').onclick=()=>handleCmd({type:'takeoff'});
+$('#btnLand').onclick=()=>handleCmd({type:'land'});
+$('#btnRtl').onclick=()=>handleCmd({type:'rtl'});
+$('#btnEstop').onclick=()=>handleCmd({type:S.estop?'resume':'estop'});
+$('#btnCast').onclick=()=>setCast(!S.cast);
+$('#btnOrbit').onclick=()=>{S.orbit=!S.orbit;$('#btnOrbit').textContent='🔄 环绕视角：'+(S.orbit?'开':'关');$('#btnOrbit').classList.toggle('on',S.orbit)};
+
+/* 本机键盘控制 */
+const keys={};
+window.addEventListener('keydown',e=>{
+  if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName))return;
+  keys[e.key.toLowerCase()]=true;
+  if(e.code==='Space'){e.preventDefault();handleCmd({type:S.flying?'land':'takeoff'})}
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key))e.preventDefault();
+});
+window.addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+setInterval(()=>{
+  let p=0,r=0,y=0,th=.5;
+  if(keys['w']||keys['arrowup'])p-=1;
+  if(keys['s']||keys['arrowdown'])p+=1;
+  if(keys['a']||keys['arrowleft'])r-=1;
+  if(keys['d']||keys['arrowright'])r+=1;
+  if(keys['q'])y-=1;
+  if(keys['e'])y+=1;
+  if(p||r||y){S.ax.pitch=p;S.ax.roll=r;S.ax.yaw=y;if(!S.flying&&S.mode==='IDLE')handleCmd({type:'takeoff'})}
+  else if(!S.flying){}else{S.ax.pitch=lerp(S.ax.pitch,0,.2);S.ax.roll=lerp(S.ax.roll,0,.2);S.ax.yaw=lerp(S.ax.yaw,0,.2)}
+},100);
+
+/* ================= 启动 ================= */
+async function init(){
+  resize();
+  try{
+    let buf;
+    if(window.DRONE_GLB_B64){
+      const s=atob(window.DRONE_GLB_B64),u=new Uint8Array(s.length);
+      for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i);
+      buf=u.buffer;
+      log('内嵌 GLB 数据已载入（'+(s.length/1024).toFixed(0)+' KB）');
+    }else{
+      buf=await (await fetch('drone.glb')).arrayBuffer();
+      log('已从 drone.glb 载入模型');
+    }
+    MODEL=parseGLB(buf);
+    const tri=MODEL.prims.reduce((s,p)=>s+p.idx.length/3,0);
+    $('#hudModel').textContent='MODEL · DRONE.GLB  ·  '+MODEL.nodes.length+' NODES  ·  '+tri+' TRI  ·  CANVAS 3D';
+    log('GLB 解析成功：'+MODEL.nodes.length+' 节点 / '+MODEL.prims.length+' primitive / '+tri+' 三角形','ok');
+    log('螺旋桨节点：'+MODEL.nodes.filter(n=>n.name&&n.name.indexOf('PROP_')===0).map(n=>n.name).join(', '));
+  }catch(e){
+    log('GLB 载入失败：'+e.message,'err');
+    $('#hudModel').textContent='MODEL LOAD FAILED · '+e.message;
+  }
+  const q=new URLSearchParams(location.search),mp=q.get('mqtt');
+  if(mp&&/^wss?:\/\//i.test(mp))$('#mqUrl').value=mp;
+  if(mp!=='off')mq.connect($('#mqUrl').value.trim());
+  requestAnimationFrame(t=>{last=t;loop(t)});
+}
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VISIONMAX · 无人机控制台 UAV CONTROL</title>
+<style>
+:root{
+  --bg:#080d16;--panel:#111a29;--panel2:#0c1421;--line:#1e2c42;
+  --txt:#dce7f7;--dim:#8296b2;--acc:#4dabf7;--ok:#51cf66;--warn:#ffd43b;--err:#ff6b6b;--cyan:#22d3ee
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font-family:"Microsoft YaHei","PingFang SC",Arial,sans-serif;min-height:100vh}
+.top{display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--line);background:rgba(12,20,33,.94)}
+.logo{width:30px;height:30px;border-radius:7px;background:linear-gradient(135deg,#f59e0b,#ef4444);display:flex;align-items:center;justify-content:center;font-weight:800;color:#04101f}
+.top h1{font-size:15px;letter-spacing:1px}
+.top h1 small{display:block;font-size:9px;color:var(--dim);letter-spacing:3px;font-weight:400}
+.nav{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.nav a{color:var(--acc);text-decoration:none;border:1px solid var(--line);padding:6px 11px;border-radius:8px;font-size:12px;background:var(--panel2)}
+.nav a:hover{border-color:var(--acc)}
+.wrap{display:grid;grid-template-columns:1fr 330px;gap:14px;padding:14px 20px;max-width:1360px;margin:0 auto}
+@media(max-width:980px){.wrap{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:14px;margin-bottom:12px}
+.card h3{font-size:12px;letter-spacing:1px;margin-bottom:11px;display:flex;align-items:center;gap:7px}
+.card h3 .tag{margin-left:auto;color:var(--dim);font-size:10px;letter-spacing:2px}
+.dot{width:9px;height:9px;border-radius:50%;background:#5a6575;display:inline-block;flex:none}
+.dot.ok{background:var(--ok);box-shadow:0 0 8px var(--ok)}.dot.err{background:var(--err)}.dot.wait{background:var(--warn);animation:bl 1s infinite}
+@keyframes bl{50%{opacity:.35}}
+.sticks{display:flex;gap:22px;justify-content:center;flex-wrap:wrap;padding:8px 0 4px}
+.joywrap{text-align:center}
+.joywrap b{display:block;font-size:12px;color:var(--dim);letter-spacing:1px;margin-bottom:9px}
+.joy{width:168px;height:168px;border-radius:50%;position:relative;cursor:grab;touch-action:none;
+  background:radial-gradient(circle at 50% 45%,#16263c,#0a1422 70%);border:2px solid #26395a;
+  box-shadow:inset 0 0 26px rgba(0,0,0,.7),0 0 0 6px rgba(30,50,80,.22)}
+.joy:active{cursor:grabbing}
+.joy:before,.joy:after{content:"";position:absolute;background:rgba(90,140,195,.20)}
+.joy:before{left:50%;top:8%;width:1px;height:84%}.joy:after{top:50%;left:8%;height:1px;width:84%}
+.joy .ring{position:absolute;inset:22px;border:1px dashed rgba(90,150,210,.22);border-radius:50%}
+.knob{position:absolute;left:50%;top:50%;width:48px;height:48px;margin:-24px 0 0 -24px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#7fd4ff,#2b6fa8 65%,#123a5e);
+  border:2px solid #9fdcff;box-shadow:0 4px 14px rgba(0,0,0,.6),0 0 14px rgba(77,171,247,.55);transition:transform .06s linear}
+.joywrap .v{font:11px Consolas,monospace;color:#7fb8e8;margin-top:8px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:13px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+.btn{border:1px solid var(--line);background:var(--panel2);color:var(--txt);border-radius:8px;padding:10px 8px;font-size:12px;cursor:pointer;font-family:inherit}
+.btn:hover{border-color:#3b4c68}.btn.solid{background:var(--acc);border-color:var(--acc);color:#04101f;font-weight:700}
+.btn.cyan{background:var(--cyan);border-color:var(--cyan);color:#04101f;font-weight:700}
+.btn.danger{color:var(--err);border-color:rgba(255,107,107,.45)}.btn.on{border-color:var(--ok);color:var(--ok)}
+.row{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12px}
+.row label{color:var(--dim);flex:none}
+input[type=url]{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:7px;padding:7px 9px;font-size:12px;font-family:inherit;outline:none}
+input[type=range]{flex:1;accent-color:var(--acc)}
+.val{min-width:38px;text-align:right;color:#bfe4ff;font:12px Consolas,monospace}
+.tele{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.tele .t{background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:7px 9px}
+.tele .t span{display:block;color:var(--dim);font-size:10px;letter-spacing:1px}
+.tele .t b{font-size:15px;color:#bfe4ff;font-family:Consolas,monospace}
+.bar{height:5px;background:#1b2940;border-radius:3px;overflow:hidden;margin-top:5px}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,#22d3ee,#51cf66);transition:width .3s}
+#attitude{display:block;width:100%;height:126px;background:#050a12;border:1px solid var(--line);border-radius:8px;margin-bottom:9px}
+.log{background:#050a12;border:1px solid var(--line);border-radius:7px;padding:7px;height:132px;overflow:auto;font:11px/1.65 Consolas,Menlo,monospace;color:#9fb0c8}
+.log .ok{color:#7ee79a}.log .warn{color:#ffd43b}.log .err{color:#ff8a8a}
+.hint{font-size:10.5px;color:#5f7089;line-height:1.7;margin-top:8px}
+.kbd{border:1px solid var(--line);background:var(--panel2);border-radius:4px;padding:1px 5px;font:11px Consolas,monospace;color:#bfe4ff}
+.foot{text-align:center;color:#3a4a63;font-size:10px;padding:6px 0 18px;letter-spacing:1px}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="logo">C</div>
+  <h1>VISIONMAX 无人机控制台<small>UAV GROUND CONTROL · MQTT REMOTE</small></h1>
+  <div class="nav">
+    <a href="wurenji.html" target="_blank">🛸 仿真页 ↗</a>
+    <a href="led-display-studio.html" target="_blank">📺 大屏 ↗</a>
+  </div>
+</div>
+
+<div class="wrap">
+  <div>
+    <div class="card">
+      <h3>飞行摇杆<span class="tag">DUAL STICK · MODE 2</span></h3>
+      <div class="sticks">
+        <div class="joywrap">
+          <b>左摇杆 · 油门 / 偏航</b>
+          <div class="joy" id="joyL"><div class="ring"></div><div class="knob"></div></div>
+          <div class="v" id="valL">THR 50% · YAW 0.00</div>
+        </div>
+        <div class="joywrap">
+          <b>右摇杆 · 俯仰 / 横滚</b>
+          <div class="joy" id="joyR"><div class="ring"></div><div class="knob"></div></div>
+          <div class="v" id="valR">PIT 0.00 · ROL 0.00</div>
+        </div>
+      </div>
+      <div class="row" style="margin-top:14px"><label>灵敏度</label><input type="range" id="sens" min="30" max="100" value="70"><span class="val" id="sensV">70%</span>
+        <label style="margin-left:12px">发送频率</label><span class="val">10 Hz</span></div>
+      <div class="hint">
+        键盘：<span class="kbd">W</span>/<span class="kbd">S</span> 前后 ·
+        <span class="kbd">A</span>/<span class="kbd">D</span> 左右 ·
+        <span class="kbd">↑</span>/<span class="kbd">↓</span> 升降 ·
+        <span class="kbd">Q</span>/<span class="kbd">E</span> 偏航 ·
+        <span class="kbd">空格</span> 起飞/降落 ·
+        <span class="kbd">R</span> 返航 ·
+        <span class="kbd">X</span> 急停
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>飞行指令<span class="tag">COMMANDS</span></h3>
+      <div class="grid4">
+        <button class="btn cyan" id="btnTakeoff">🛫 起飞</button>
+        <button class="btn" id="btnLand">🛬 降落</button>
+        <button class="btn" id="btnRtl">🏠 返航</button>
+        <button class="btn danger" id="btnEstop">⛔ 急停</button>
+      </div>
+      <div class="grid3">
+        <button class="btn" id="btnPhoto">📷 拍照回传</button>
+        <button class="btn" id="btnCast">📺 投屏：关</button>
+        <button class="btn" id="btnReset">🔄 重置状态</button>
+      </div>
+      <div class="row" style="margin-top:11px"><label>云台俯仰</label><input type="range" id="gimbal" min="-70" max="35" value="0"><span class="val" id="gimbalV">0°</span></div>
+      <div class="hint">所有指令经 <b>uav/cmd</b> 主题下发；仿真页会周期回传 <b>uav/telemetry</b> 遥测。</div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <h3>姿态仪<span class="tag">ATTITUDE</span></h3>
+      <canvas id="attitude"></canvas>
+      <div class="tele">
+        <div class="t"><span>高度 ALT</span><b id="tAlt">-- m</b></div>
+        <div class="t"><span>速度 SPD</span><b id="tSpd">-- m/s</b></div>
+        <div class="t"><span>电量 BAT</span><b id="tBat">-- %</b><div class="bar"><i id="batBar" style="width:100%"></i></div></div>
+        <div class="t"><span>转速 RPM</span><b id="tRpm">-- %</b></div>
+        <div class="t"><span>模式 MODE</span><b id="tMode" style="font-size:13px">OFFLINE</b></div>
+        <div class="t"><span>航向 YAW</span><b id="tYaw">-- °</b></div>
+      </div>
+      <div class="hint" id="tCoord">坐标 X 0.00 / Z 0.00 · 等待遥测…</div>
+    </div>
+
+    <div class="card">
+      <h3><span class="dot" id="mqDot"></span><span id="mqState">未连接</span><span class="tag">MQTT</span></h3>
+      <div class="row"><input type="url" id="mqUrl" value="wss://2121166752201678848.app.workbuddy.host/mqtt?sharecode=7PPU2UMG6J"></div>
+      <div class="grid3"><button class="btn solid" id="btnConn">连接</button><button class="btn danger" id="btnDisc">断开</button><button class="btn" id="btnPing">测试</button></div>
+      <div class="hint">连接后自动订阅 <b>uav/telemetry</b>，10Hz 向 <b>uav/cmd</b> 发送摇杆量。</div>
+    </div>
+
+    <div class="card">
+      <h3>控制台日志<span class="tag">LOG</span></h3>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+</div>
+<div class="foot">VISIONMAX UAV GROUND CONTROL · MQTT 3.1.1 OVER WEBSOCKET · ZERO DEPENDENCY</div>
+
+<script src="mqtt-client.js"></script>
+<script>
+const $=s=>document.querySelector(s);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const nowStr=()=>{const d=new Date(),p=n=>String(n).padStart(2,'0');return p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds())};
+function log(m,c){const b=$('#log'),d=document.createElement('div');if(c)d.className=c;d.textContent='['+nowStr()+'] '+m;b.appendChild(d);while(b.children.length>80)b.removeChild(b.firstChild);b.scrollTop=b.scrollHeight}
+
+/* ---------- MQTT ---------- */
+const mq=new MiniMQTT({
+  url:'wss://2121166752201678848.app.workbuddy.host/mqtt?sharecode=7PPU2UMG6J',
+  filters:['uav/telemetry','uav/pong'],clientId:'uavctrl',
+  onState:(c,t)=>{$('#mqDot').className='dot '+c;$('#mqState').textContent=t;if(c!=='ok')$('#tMode').textContent='OFFLINE'},
+  onLog:(m,c)=>log(m,c),
+  onMessage:(topic,payload)=>{
+    if(topic==='uav/pong'){log('仿真页在线 PONG ✓','ok');return}
+    let t;try{t=JSON.parse(payload)}catch(e){return}
+    telemetry=t;drawTelemetry(t);
+  }
+});
+let telemetry=null;
+
+/* ---------- 指令 ---------- */
+function cmd(o){if(mq.publishJSON('uav/cmd',o))log('→ '+o.type+(o.value!==undefined?' '+o.value:''),'ok')}
+$('#btnTakeoff').onclick=()=>cmd({type:'takeoff'});
+$('#btnLand').onclick=()=>cmd({type:'land'});
+$('#btnRtl').onclick=()=>cmd({type:'rtl'});
+$('#btnEstop').onclick=()=>{cmd({type:estop?'resume':'estop'});estop=!estop;$('#btnEstop').textContent=estop?'✅ 恢复':'⛔ 急停'};
+let estop=false;
+$('#btnPhoto').onclick=()=>cmd({type:'photo'});
+$('#btnCast').onclick=()=>{cast=!cast;cmd({type:'cast',on:cast});$('#btnCast').textContent='📺 投屏：'+(cast?'开':'关');$('#btnCast').classList.toggle('on',cast)};
+let cast=false;
+$('#btnReset').onclick=()=>cmd({type:'reset'});
+$('#btnPing').onclick=()=>mq.publishJSON('uav/cmd',{type:'ping'});
+$('#btnConn').onclick=()=>mq.connect($('#mqUrl').value.trim());
+$('#btnDisc').onclick=()=>mq.disconnect(false);
+$('#gimbal').oninput=e=>{$('#gimbalV').textContent=e.target.value+'°';cmd({type:'gimbal',value:+e.target.value})};
+$('#sens').oninput=e=>$('#sensV').textContent=e.target.value+'%';
+
+/* ---------- 摇杆 ---------- */
+function joystick(el,cb){
+  const knob=el.querySelector('.knob');let dragging=false,v={x:0,y:0};
+  const update=e=>{
+    const r=el.getBoundingClientRect(),R=r.width/2-24;
+    let dx=(e.clientX-(r.left+r.width/2))/R,dy=(e.clientY-(r.top+r.height/2))/R;
+    const l=Math.hypot(dx,dy);if(l>1){dx/=l;dy/=l}
+    dx=clamp(dx,-1,1);dy=clamp(dy,-1,1);
+    v={x:dx,y:dy};knob.style.transform='translate('+(dx*R)+'px,'+(dy*R)+'px)';cb(v);
+  };
+  const release=()=>{dragging=false;v={x:0,y:0};knob.style.transform='translate(0,0)';cb(v)};
+  el.addEventListener('pointerdown',e=>{dragging=true;el.setPointerCapture(e.pointerId);update(e)});
+  el.addEventListener('pointermove',e=>{if(dragging)update(e)});
+  el.addEventListener('pointerup',()=>{if(dragging)release()});
+  el.addEventListener('pointercancel',()=>{if(dragging)release()});
+  return{get:()=>v,reset:release};
+}
+const left=joystick($('#joyL'),v=>{
+  $('#valL').textContent='THR '+Math.round(50-v.y*50)+'% · YAW '+v.x.toFixed(2);
+});
+const right=joystick($('#joyR'),v=>{
+  $('#valR').textContent='PIT '+v.y.toFixed(2)+' · ROL '+v.x.toFixed(2);
+});
+
+/* 键盘 */
+const keys={};
+let flyingLocal=false;
+window.addEventListener('keydown',e=>{
+  if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName))return;
+  const k=e.key.toLowerCase();keys[k]=true;
+  if(e.code==='Space'){e.preventDefault();cmd({type:flyingLocal?'land':'takeoff'});flyingLocal=!flyingLocal}
+  if(k==='r')cmd({type:'rtl'});
+  if(k==='x')cmd({type:'estop'});
+  if(['arrowup','arrowdown','arrowleft','arrowright'].includes(k))e.preventDefault();
+});
+window.addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+function keyAxes(){
+  let pit=0,rol=0,yaw=0,th=0;
+  if(keys['w'])pit-=1;if(keys['s'])pit+=1;
+  if(keys['a'])rol-=1;if(keys['d'])rol+=1;
+  if(keys['q'])yaw-=1;if(keys['e'])yaw+=1;
+  if(keys['arrowup'])th+=1;if(keys['arrowdown'])th-=1;
+  return{pit,rol,yaw,th};
+}
+
+/* 10Hz 发送摇杆量 */
+setInterval(()=>{
+  if(!mq.connected)return;
+  const k=keyAxes(),L=left.get(),R=right.get(),s=+$('#sens').value/100;
+  const pitch=clamp((R.y||k.pit)*s,-1,1);
+  const roll=clamp((R.x||k.rol)*s,-1,1);
+  const yaw=clamp((L.x||k.yaw)*s,-1,1);
+  const throttle=clamp(.5-(L.y*.5)+k.th*.35,0,1);
+  mq.publishJSON('uav/cmd',{type:'axes',pitch,roll,yaw,throttle});
+},100);
+
+/* ---------- 遥测显示 + 姿态仪 ---------- */
+const ac=$('#attitude'),ax=ac.getContext('2d');
+function sizeAttitude(){
+  const r=ac.getBoundingClientRect(),d=Math.min(2,window.devicePixelRatio||1);
+  ac.width=Math.round(r.width*d);ac.height=Math.round(126*d);ax.setTransform(d,0,0,d,0,0);
+}
+window.addEventListener('resize',sizeAttitude);sizeAttitude();
+function drawAttitude(pit,rol){
+  const w=ac.clientWidth,h=126,cx=w/2,cy=h/2,R=Math.min(w,h)/2-6;
+  ax.clearRect(0,0,w,h);
+  ax.save();ax.beginPath();ax.arc(cx,cy,R,0,Math.PI*2);ax.clip();
+  ax.translate(cx,cy);ax.rotate(-rol);
+  const off=pit*R*.9;
+  ax.fillStyle='#2f83c9';ax.fillRect(-R*2,-R*2+off,R*4,R*2);
+  ax.fillStyle='#9a6530';ax.fillRect(-R*2,off,R*4,R*2);
+  ax.strokeStyle='rgba(255,255,255,.95)';ax.lineWidth=2;ax.beginPath();ax.moveTo(-R*2,off);ax.lineTo(R*2,off);ax.stroke();
+  ax.strokeStyle='rgba(255,255,255,.32)';ax.lineWidth=1;
+  for(let k=-3;k<=3;k++){ax.beginPath();ax.moveTo(-R*2,off+k*16);ax.lineTo(R*2,off+k*16);ax.stroke()}
+  ax.restore();
+  ax.strokeStyle='#7fd4ff';ax.lineWidth=2;ax.beginPath();ax.arc(cx,cy,R,0,Math.PI*2);ax.stroke();
+  ax.strokeStyle='#ffd43b';ax.lineWidth=3;
+  ax.beginPath();ax.moveTo(cx-30,cy);ax.lineTo(cx-9,cy);ax.moveTo(cx+9,cy);ax.lineTo(cx+30,cy);ax.stroke();
+  ax.fillStyle='#ffd43b';ax.beginPath();ax.arc(cx,cy,2.5,0,Math.PI*2);ax.fill();
+}
+function drawTelemetry(t){
+  $('#tAlt').textContent=(+t.alt||0).toFixed(1)+' m';
+  $('#tSpd').textContent=(+t.speed||0).toFixed(1)+' m/s';
+  $('#tBat').textContent=(+t.battery||0).toFixed(0)+' %';
+  $('#batBar').style.width=(+t.battery||0)+'%';
+  $('#tRpm').textContent=Math.round((+t.rpm||0)*100)+' %';
+  $('#tMode').textContent=t.mode||'--';
+  $('#tYaw').textContent=((+t.yaw||0)*57.3%360).toFixed(0)+' °';
+  $('#tCoord').textContent='坐标 X '+(t.x||0).toFixed(2)+' / Z '+(t.z||0).toFixed(2)+' · 云台 '+((t.gimbal||0)*57.3).toFixed(0)+'° · '+nowStr();
+  drawAttitude(+t.pitch||0,+t.roll||0);
+}
+drawAttitude(0,0);
+
+/* ---------- 启动 ---------- */
+(function init(){
+  const q=new URLSearchParams(location.search),mp=q.get('mqtt');
+  if(mp&&/^wss?:\/\//i.test(mp))$('#mqUrl').value=mp;
+  log('控制台就绪 · '+(mp==='off'?'自动连接已关闭':'正在连接 broker'));
+  if(mp!=='off')mq.connect($('#mqUrl').value.trim());
+})();
+</script>
+</body>
+</html>

@@ -24,7 +24,8 @@ body{
   display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#04101f}
 .top h1{font-size:16px;letter-spacing:1px}
 .top h1 small{display:block;font-size:10px;color:var(--dim);letter-spacing:3px;font-weight:400}
-.top .link{margin-left:auto;font-size:12px;color:var(--acc);text-decoration:none;border:1px solid var(--line);
+.top .navlinks{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.top .link{font-size:12px;color:var(--acc);text-decoration:none;border:1px solid var(--line);
   padding:6px 12px;border-radius:8px;background:var(--panel2)}
 .top .link:hover{border-color:var(--acc)}
 .wrap{display:grid;grid-template-columns:330px 1fr;gap:16px;padding:16px 22px;max-width:1280px;margin:0 auto}
@@ -82,7 +83,11 @@ input[type=range]{flex:1;accent-color:var(--acc)}
 <div class="top">
   <div class="logo">V</div>
   <h1>VISIONMAX 投送台<small>LED REMOTE PUBLISHER</small></h1>
-  <a class="link" href="led-display-studio.html" target="_blank">打开大屏 ↗</a>
+  <div class="navlinks">
+    <a class="link" href="wurenji.html" target="_blank">🛸 无人机仿真</a>
+    <a class="link" href="wurenji-control.html" target="_blank">🎮 无人机控制台</a>
+    <a class="link" href="led-display-studio.html" target="_blank">打开大屏 ↗</a>
+  </div>
 </div>
 
 <div class="wrap">
@@ -216,7 +221,7 @@ function logLine(msg,cls){
 
 /* ============ MQTT 3.1.1 最小客户端（原生 WebSocket） ============ */
 const CMD_TOPIC='led/studio/cmd';
-const mqtt={ws:null,on:false,want:false,pingT:null,retryT:null,url:''};
+const mqtt={ws:null,on:false,want:false,pingT:null,retryT:null,connT:null,buf:null,url:''};
 
 function concatU8(a,b){const r=new Uint8Array(a.length+b.length);r.set(a,0);r.set(b,a.length);return r}
 function strBytes(s){const b=new TextEncoder().encode(s);return[(b.length>>8)&255,b.length&255,...b]}
@@ -235,12 +240,21 @@ function mqttConnect(url){
   url=String(url).trim();
   if(!/^wss?:\/\//i.test(url)){logLine('MQTT 地址需以 ws:// 或 wss:// 开头','err');return}
   mqttDisconnect(true);
-  mqtt.want=true;mqtt.url=url;setStatus('wait','连接中');
+  mqtt.want=true;mqtt.url=url;mqtt.buf=null;setStatus('wait','连接中');
   logLine('正在连接 '+url.split('?')[0]+' …');
   let ws;
   try{ws=new WebSocket(url,'mqtt')}
   catch(e){setStatus('err','地址无效');logLine('WebSocket 创建失败：'+e.message,'err');mqtt.want=false;return}
   mqtt.ws=ws;ws.binaryType='arraybuffer';
+  /* 关键：broker 会把单个 MQTT 包拆成多个 1 字节 WebSocket 帧，
+     必须跨消息累积缓冲；否则 CONNACK 永远拼不完整，页面会卡在「连接中」。 */
+  clearTimeout(mqtt.connT);
+  mqtt.connT=setTimeout(()=>{
+    if(!mqtt.on&&mqtt.ws===ws){
+      logLine('8s 内未收到 CONNACK，主动重连','warn');
+      try{ws.close()}catch(e){}
+    }
+  },8000);
   ws.onopen=()=>{
     if(mqtt.ws!==ws)return;
     const cid='ledsender-'+Math.random().toString(16).slice(2,10);
@@ -253,10 +267,11 @@ function mqttConnect(url){
     mqttParse(u8);
   };
   ws.onerror=()=>logLine('WebSocket 错误（检查地址 / 网络）','err');
-  ws.onclose=()=>{
+  ws.onclose=e=>{
     if(mqtt.ws!==ws)return;
-    mqtt.ws=null;clearInterval(mqtt.pingT);
-    if(mqtt.want){setStatus('err','已断开');logLine('连接关闭，3s 后自动重连','warn');
+    mqtt.ws=null;mqtt.buf=null;clearInterval(mqtt.pingT);clearTimeout(mqtt.connT);
+    logLine('连接关闭 code='+e.code+(e.reason?' · '+e.reason:''),'warn');
+    if(mqtt.want){setStatus('err','已断开');logLine('3s 后自动重连','warn');
       clearTimeout(mqtt.retryT);
       mqtt.retryT=setTimeout(()=>{if(mqtt.want)mqttConnect(url)},3000)}
     else setStatus('off','未连接');
@@ -264,14 +279,16 @@ function mqttConnect(url){
 }
 
 function mqttDisconnect(silent){
-  mqtt.want=false;clearTimeout(mqtt.retryT);clearInterval(mqtt.pingT);
+  mqtt.want=false;clearTimeout(mqtt.retryT);clearTimeout(mqtt.connT);clearInterval(mqtt.pingT);
   if(mqtt.ws){const w=mqtt.ws;w.onclose=w.onerror=w.onmessage=null;try{w.close()}catch(e){}mqtt.ws=null}
-  mqtt.on=false;
+  mqtt.on=false;mqtt.buf=null;
   if(!silent){setStatus('off','未连接');logLine('已手动断开','warn')}
 }
 
+/* 跨消息缓冲解析：broker 可能逐字节分帧，必须把未完成报文留到下一帧 */
 function mqttParse(u8){
-  let buf=u8,off=0;
+  mqtt.buf=mqtt.buf?concatU8(mqtt.buf,u8):new Uint8Array(u8);
+  const buf=mqtt.buf;let off=0;
   while(true){
     if(buf.length-off<2)break;
     let rl=0,mul=1,i=off+1,complete=true;
@@ -284,12 +301,14 @@ function mqttParse(u8){
     try{mqttPacketIn(buf[off],buf.subarray(i,i+rl))}catch(e){}
     off=i+rl;
   }
+  mqtt.buf=off>0?(off<buf.length?buf.slice(off):null):buf;
 }
 
 function mqttPacketIn(b1,body){
   const type=b1>>4;
   if(type===2){ /* CONNACK */
     if(body[1]===0){
+      clearTimeout(mqtt.connT);
       mqtt.on=true;setStatus('ok','已连接');
       logLine('已连接 broker · 可向 led/studio/# 投送','ok');
       clearInterval(mqtt.pingT);
