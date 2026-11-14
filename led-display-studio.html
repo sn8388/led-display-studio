@@ -312,6 +312,27 @@ body.immersive .rig{width:min(98%,1680px)}
   opacity:0;transition:.25s;pointer-events:none;box-shadow:0 8px 26px rgba(0,0,0,.3);
 }
 .toast.show{opacity:1;transform:translate(-50%,0)}
+
+/* ---------- MQTT 远程投送 ---------- */
+.mqtt-status{display:flex;align-items:center;gap:8px;margin-bottom:9px;font-size:12px}
+.mqtt-status b{font-weight:700;color:#39465c}
+.mqtt-dot{width:9px;height:9px;border-radius:50%;background:#9aa6b6;flex:none}
+.mqtt-dot.ok{background:#22c55e;box-shadow:0 0 8px #22c55e}
+.mqtt-dot.err{background:#ef4444;box-shadow:0 0 8px #ef4444}
+.mqtt-dot.wait{background:#f59e0b;box-shadow:0 0 8px #f59e0b;animation:mqblink 1s infinite}
+@keyframes mqblink{50%{opacity:.35}}
+.mqtt-log{
+  margin-top:10px;height:100px;overflow-y:auto;background:#0d1420;border-radius:7px;padding:7px 9px;
+  font:10.5px/1.75 Consolas,"SFMono-Regular",monospace;color:#a8d8b0;border:1px solid #dfe6f0;
+}
+.mqtt-log .mline{white-space:pre-wrap;word-break:break-all}
+.mqtt-log .mline.ok{color:#7ee79a}
+.mqtt-log .mline.warn{color:#ffd43b}
+.mqtt-log .mline.err{color:#ff8a8a}
+.hint code{
+  background:#f1f5fb;padding:1px 5px;border-radius:4px;
+  font:10.5px Consolas,monospace;color:#3b4d6b;word-break:break-all;
+}
 @media(max-width:1100px){.panel{width:300px}.stage{padding:24px}.brand{min-width:auto}}
 </style>
 </head>
@@ -401,6 +422,26 @@ WELCOME</textarea>
     </section>
 
     <section class="card">
+      <h3><span class="cdot o"></span>远程投送<span class="tag">MQTT</span></h3>
+      <div class="mqtt-status"><span class="mqtt-dot" id="mqttDot"></span><b id="mqttState">未连接</b>
+        <label class="chk" style="margin-left:auto"><input type="checkbox" id="mqttAuto">自动连接</label>
+      </div>
+      <div class="row"><label>Broker</label><input type="url" id="mqttUrl"
+        value="wss://2121166752201678848.app.workbuddy.host/mqtt?sharecode=7PPU2UMG6J"></div>
+      <div class="btn-row">
+        <button class="btn solid" id="btnMqttConnect">连接</button>
+        <button class="btn ghost-red" id="btnMqttDisconnect">断开</button>
+      </div>
+      <div class="mqtt-log" id="mqttLog"></div>
+      <p class="hint">连接后自动订阅 <b>led/studio/#</b>，向以下主题发消息即可远程上屏：<br>
+        <b>led/studio/text</b> — 直接发纯文本<br>
+        <b>led/studio/image</b> — 图片 URL / dataURL<br>
+        <b>led/studio/video</b> — 视频 URL<br>
+        <b>led/studio/cmd</b> — JSON 命令，如
+        <code>{"type":"text","content":"HELLO","color":"#ffd43b","size":150}</code></p>
+    </section>
+
+    <section class="card">
       <h3><span class="cdot"></span>屏体参数<span class="tag">PANEL CONFIG</span></h3>
       <div class="row"><label>亮度</label><input type="range" id="scBright" min="20" max="130" value="100"><span class="val" id="scBrightV">100%</span></div>
       <div class="row"><label>像素间距</label><input type="range" id="scPitch" min="2" max="9" value="4"><span class="val" id="scPitchV">4px</span></div>
@@ -456,6 +497,7 @@ WELCOME</textarea>
   <div class="st-item">刷新 <b>60 Hz</b></div>
   <div class="st-item">亮度 <b id="stBright">100%</b></div>
   <div class="st-item">屏温 <b id="stTemp">38.5 °C</b></div>
+  <div class="st-item">MQTT <b id="stMqtt">OFF</b></div>
   <div class="st-right"><span>运行 <b id="stUptime">00:00:00</b></span><span id="stClock">--</span></div>
 </footer>
 
@@ -1155,6 +1197,236 @@ function exportPNG(){
   }catch(e){ toast('导出失败：'+e.message); }
 }
 
+/* ---------- MQTT 远程投送（原生 WebSocket · MQTT 3.1.1 最小客户端） ---------- */
+const MQTT_BASE='led/studio';
+const MQTT_TOPICS={ cmd:MQTT_BASE+'/cmd', text:MQTT_BASE+'/text', image:MQTT_BASE+'/image', video:MQTT_BASE+'/video' };
+const mqtt={ ws:null, on:false, want:false, pingT:null, retryT:null, pktId:1, buf:null };
+
+function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+function concatU8(a,b){ const r=new Uint8Array(a.length+b.length); r.set(a,0); r.set(b,a.length); return r; }
+function strBytes(s){ const b=new TextEncoder().encode(s); return [(b.length>>8)&255,b.length&255,...b]; }
+function remLen(n){ const o=[]; do{ let d=n%128; n=Math.floor(n/128); if(n>0)d|=128; o.push(d); }while(n>0); return o; }
+function pkt(type,flags,body){ return new Uint8Array([(type<<4)|flags,...remLen(body.length),...body]); }
+
+function mqttStatus(cls,txt){
+  const d=$('#mqttDot'); if(d) d.className='mqtt-dot '+cls;
+  const s=$('#mqttState'); if(s) s.textContent=txt;
+  const sb=$('#stMqtt'); if(sb) sb.textContent=cls==='ok'?'LINK':cls==='wait'?'…':'OFF';
+}
+function mqttLogLine(msg,cls){
+  const box=$('#mqttLog'); if(!box) return;
+  const d=document.createElement('div'); d.className='mline'+(cls?' '+cls:'');
+  d.textContent='['+clockStr(new Date())+'] '+msg;
+  box.appendChild(d);
+  while(box.children.length>80) box.removeChild(box.firstChild);
+  box.scrollTop=box.scrollHeight;
+}
+
+function mqttConnect(url){
+  if(url===undefined) url=$('#mqttUrl').value;
+  url=String(url).trim();
+  if(!/^wss?:\/\//i.test(url)){ toast('MQTT 地址需以 ws:// 或 wss:// 开头'); return; }
+  mqttDisconnect(true);
+  mqtt.want=true; mqttStatus('wait','连接中');
+  mqttLogLine('正在连接 '+url.split('?')[0]+' …');
+  let ws;
+  try{ ws=new WebSocket(url,'mqtt'); }
+  catch(e){ mqttStatus('err','地址无效'); mqttLogLine('WebSocket 创建失败：'+e.message,'err'); mqtt.want=false; return; }
+  mqtt.ws=ws; ws.binaryType='arraybuffer';
+  ws.onopen=()=>{
+    if(mqtt.ws!==ws) return;
+    const cid='ledstudio-'+Math.random().toString(16).slice(2,10);
+    const vh=[0,4,0x4D,0x51,0x54,0x54,4,0x02,0,30];   /* "MQTT" · level 4 · clean session · keepalive 30s */
+    try{ ws.send(pkt(1,0,new Uint8Array([...vh,...strBytes(cid)]))); }
+    catch(e){ mqttLogLine('CONNECT 发送失败','err'); }
+  };
+  ws.onmessage=ev=>{
+    if(mqtt.ws!==ws) return;
+    const u8=ev.data instanceof ArrayBuffer?new Uint8Array(ev.data):new TextEncoder().encode(String(ev.data));
+    mqttParse(u8);
+  };
+  ws.onerror=()=>{ mqttLogLine('WebSocket 错误（检查地址 / 网络）','err'); };
+  ws.onclose=()=>{
+    if(mqtt.ws!==ws) return;
+    mqtt.ws=null; clearInterval(mqtt.pingT);
+    if(mqtt.want){
+      mqttStatus('err','已断开'); mqttLogLine('连接关闭，3s 后自动重连','warn');
+      clearTimeout(mqtt.retryT);
+      mqtt.retryT=setTimeout(()=>{ if(mqtt.want) mqttConnect(url); },3000);
+    } else mqttStatus('off','未连接');
+  };
+}
+
+function mqttDisconnect(silent){
+  mqtt.want=false; clearTimeout(mqtt.retryT); clearInterval(mqtt.pingT);
+  if(mqtt.ws){
+    const w=mqtt.ws; w.onclose=null; w.onerror=null; w.onmessage=null;
+    try{ w.close(); }catch(e){}
+    mqtt.ws=null;
+  }
+  mqtt.on=false;
+  if(!silent){ mqttStatus('off','未连接'); mqttLogLine('已手动断开','warn'); }
+}
+
+function mqttSubscribe(filter){
+  if(!mqtt.ws||mqtt.ws.readyState!==1) return;
+  mqtt.pktId=(mqtt.pktId+1)%65536||1;
+  const id=mqtt.pktId;
+  try{ mqtt.ws.send(pkt(8,2,new Uint8Array([(id>>8)&255,id&255,...strBytes(filter),0]))); }catch(e){}
+}
+
+function mqttParse(u8){
+  mqtt.buf=mqtt.buf?concatU8(mqtt.buf,u8):u8;
+  const buf=mqtt.buf; let off=0;
+  while(true){
+    if(buf.length-off<2) break;
+    let rl=0,mul=1,i=off+1,complete=true;
+    while(true){
+      if(i>=buf.length){ complete=false; break; }
+      const b=buf[i++]; rl+=(b&127)*mul; mul*=128;
+      if(!(b&128)) break;
+    }
+    if(!complete||buf.length-i<rl) break;
+    try{ mqttPacketIn(buf[off],buf.subarray(i,i+rl)); }catch(e){}
+    off=i+rl;
+  }
+  mqtt.buf=off>0?(off<buf.length?buf.slice(off):null):buf;
+}
+
+function mqttPacketIn(b1,body){
+  const type=b1>>4, ws=mqtt.ws;
+  if(type===2){ /* CONNACK */
+    const rc=body[1];
+    if(rc===0){
+      mqtt.on=true; mqttStatus('ok','已连接');
+      mqttLogLine('已连接 broker · 订阅 '+MQTT_BASE+'/#','ok');
+      mqttSubscribe(MQTT_BASE+'/#');
+      clearInterval(mqtt.pingT);
+      mqtt.pingT=setInterval(()=>{ if(ws&&ws.readyState===1){ try{ ws.send(pkt(12,0,new Uint8Array(0))); }catch(e){} } },25000);
+      toast('MQTT 已连接，可远程投送内容上屏');
+    } else {
+      mqtt.want=false; mqttStatus('err','拒绝('+rc+')');
+      mqttLogLine('broker 拒绝连接，返回码 '+rc,'err');
+    }
+  }
+  else if(type===9){ mqttLogLine('订阅成功 SUBACK','ok'); }
+  else if(type===3){ /* PUBLISH */
+    const qos=(b1>>1)&3;
+    const tl=(body[0]<<8)|body[1];
+    const topic=new TextDecoder().decode(body.subarray(2,2+tl));
+    let p=2+tl;
+    if(qos>0) p+=2;
+    const payload=new TextDecoder().decode(body.subarray(p));
+    if(qos===1&&ws&&ws.readyState===1){ try{ ws.send(pkt(4,0,new Uint8Array([body[2+tl],body[3+tl]]))); }catch(e){} }
+    mqttDispatch(topic,payload);
+  }
+  /* 13=PINGRESP / 4=PUBACK 无需处理 */
+}
+
+function mqttDispatch(topic,payload){
+  if(topic===MQTT_TOPICS.cmd){
+    let c=null; try{ c=JSON.parse(payload); }catch(e){}
+    mqttApply(c&&typeof c==='object'?c:{type:'text',content:payload});
+  }
+  else if(topic===MQTT_TOPICS.text||topic.endsWith('/text')) mqttApply({type:'text',content:payload});
+  else if(topic===MQTT_TOPICS.image||topic.endsWith('/image')) mqttApply({type:'image',url:payload.trim()});
+  else if(topic===MQTT_TOPICS.video||topic.endsWith('/video')) mqttApply({type:'video',url:payload.trim()});
+}
+
+function syncTextUI(){
+  $('#txtContent').value=S.text.content;
+  $('#txtSize').value=S.text.size; $('#txtSizeV').textContent=S.text.size;
+  $('#txtSpeed').value=S.text.speed; $('#txtSpeedV').textContent=S.text.speed+'s';
+  $('#txtGlow').checked=S.text.glow; $('#txtScroll').checked=S.text.scroll;
+  $$('#txtAlign button').forEach(b=>b.classList.toggle('active',b.dataset.v===S.text.align));
+  $$('#txtColors .sw').forEach(x=>x.classList.toggle('active',x.dataset.c===S.text.color));
+}
+
+function mqttApply(c){
+  if(!c||typeof c!=='object') return;
+  const type=String(c.type||c.action||'text').toLowerCase();
+
+  if(type==='power'){
+    const on=c.on!==undefined?!!c.on:!!c.value;
+    if(on!==S.power) togglePower();
+    mqttLogLine('电源 → '+(on?'ON':'OFF')); return;
+  }
+  if(type==='layout'){
+    const k=c.layout||c.value;
+    if(k&&LAYOUTS[k]){ setLayout(k); mqttLogLine('布局 → '+LAYOUTS[k].name,'ok'); }
+    else mqttLogLine('未知布局 '+(k||''),'warn');
+    return;
+  }
+  if(type==='bright'||type==='pitch'||type==='scan'){
+    const v=Math.round(+c.value);
+    const lim={ bright:[20,130], pitch:[2,9], scan:[0,80] }[type];
+    if(isNaN(v)){ mqttLogLine(type+' 缺少数值','warn'); return; }
+    S.screen[type]=Math.max(lim[0],Math.min(lim[1],v));
+    applyScreen(); mqttLogLine(type+' → '+S.screen[type]); return;
+  }
+  if(type==='source'||type==='cell'){
+    const idx=Math.max(0,Math.min(c.cell|0,S.cells.length-1));
+    if(SOURCE_LABELS[c.source]){
+      S.cells[idx]=c.source; buildScreen();
+      mqttLogLine('分区 '+(idx+1)+' → '+SOURCE_LABELS[c.source],'ok');
+    } else mqttLogLine('未知信号源 '+(c.source||''),'warn');
+    return;
+  }
+
+  const hasCell=Number.isInteger(c.cell);
+  const goFull=()=>{ S.layout='single'; S.cells=[type];
+    $$('#layouts .lay').forEach(b=>b.classList.toggle('active',b.dataset.k==='single')); buildScreen(); };
+
+  if(type==='text'){
+    const content=c.content!==undefined?c.content:c.text;
+    if(typeof content!=='string'){ mqttLogLine('text 命令缺少 content','warn'); return; }
+    S.text.content=content;
+    if(c.color){ S.text.color=c.color; S.text.glowColor=c.color; }
+    if(c.size!==undefined) S.text.size=Math.max(30,Math.min(170,Math.round(+c.size||120)));
+    if(c.speed!==undefined) S.text.speed=Math.max(4,Math.min(30,Math.round(+c.speed||14)));
+    if(c.align&&['left','center','right'].includes(c.align)) S.text.align=c.align;
+    if(c.glow!==undefined) S.text.glow=!!c.glow;
+    if(c.scroll!==undefined) S.text.scroll=!!c.scroll;
+    syncTextUI(); refreshText(true);
+  } else if(type==='image'){
+    const url=String(c.url||c.src||'').trim();
+    if(!url){ mqttLogLine('image 命令缺少 url','warn'); return; }
+    if(c.fit&&['cover','contain','fill'].includes(c.fit)){
+      S.image.fit=c.fit;
+      $$('#imgFit button').forEach(b=>b.classList.toggle('active',b.dataset.v===c.fit));
+    }
+    setImage(url,'MQTT 图片已上屏');
+  } else if(type==='video'){
+    const url=String(c.url||c.src||'').trim();
+    if(!url){ mqttLogLine('video 命令缺少 url','warn'); return; }
+    if(c.muted!==undefined) S.video.muted=!!c.muted;
+    if(c.loop!==undefined) S.video.loop=!!c.loop;
+    setVideo(url,'MQTT 视频已上屏');
+  } else if(SOURCE_LABELS[type]){
+    if(hasCell) S.cells[Math.max(0,Math.min(c.cell,S.cells.length-1))]=type;
+    else goFull();
+    buildScreen(); mqttLogLine('上屏 '+SOURCE_LABELS[type],'ok'); showOSD(); return;
+  } else { mqttLogLine('未知命令类型 '+type,'warn'); return; }
+
+  if(hasCell) S.cells[Math.max(0,Math.min(c.cell,S.cells.length-1))]=type;
+  else goFull();
+  mqttLogLine('上屏 '+(SOURCE_LABELS[type]||type),'ok'); showOSD();
+}
+
+function initMQTTUI(){
+  const saved=lsGet('vmx_mqtt_url');
+  if(saved) $('#mqttUrl').value=saved;
+  $('#btnMqttConnect').onclick=()=>{ lsSet('vmx_mqtt_url',$('#mqttUrl').value.trim()); mqttConnect(); };
+  $('#btnMqttDisconnect').onclick=()=>mqttDisconnect(false);
+  $('#mqttAuto').checked=lsGet('vmx_mqtt_auto')!=='0';
+  $('#mqttAuto').onchange=e=>lsSet('vmx_mqtt_auto',e.target.checked?'1':'0');
+  const q=new URLSearchParams(location.search), mp=q.get('mqtt');
+  if(mp&&/^wss?:\/\//i.test(mp)){ $('#mqttUrl').value=mp; lsSet('vmx_mqtt_url',mp); }
+  mqttStatus('off','未连接');
+  if($('#mqttAuto').checked&&mp!=='off') mqttConnect();
+}
+
 /* ---------- 启动 ---------- */
 function init(){
   /* URL 预设：?layout=quad&cells=text,image,video,monitor */
@@ -1171,7 +1443,7 @@ function init(){
       S.cells=Array.from({length:n},(_,i)=>(arr[i]&&SOURCE_LABELS[arr[i]])?arr[i]:'blank');
     }
   }
-  buildLayoutUI(); initTextUI(); initImageUI(); initVideoUI(); initMonitorUI(); initScreenUI(); initGlobal();
+  buildLayoutUI(); initTextUI(); initImageUI(); initVideoUI(); initMonitorUI(); initScreenUI(); initMQTTUI(); initGlobal();
   S.image.el=new Image(); S.image.el.src=DEMO_IMG_URL;
   setImage(DEMO_IMG_URL,null);
   buildScreen(); applyScreen();

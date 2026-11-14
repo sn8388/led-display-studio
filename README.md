@@ -15,6 +15,33 @@
 - **快捷键**：`F` 沉浸模式 / `空格` 开关机 / `S` 导出。
 - **URL 预设**：例如 `?layout=single&cells=monitor` 直接进指定视图。
 
+## 远程投送（MQTT）
+
+页面内置 MQTT 3.1.1 over WebSocket 客户端（原生实现，无第三方库），连接后自动订阅 `led/studio/#`，外部向以下主题发消息即可远程把内容投到屏幕：
+
+| 主题 | 载荷 | 效果 |
+|---|---|---|
+| `led/studio/text` | 纯文本 | 文字全屏上屏 |
+| `led/studio/image` | 图片 URL / dataURL | 图片全屏上屏 |
+| `led/studio/video` | 视频 URL | 视频全屏上屏 |
+| `led/studio/cmd` | JSON 命令 | 见下方命令表 |
+
+`led/studio/cmd` JSON 命令示例：
+
+```json
+{"type":"text","content":"HELLO","color":"#ffd43b","size":150,"scroll":false}
+{"type":"image","url":"https://example.com/a.jpg","fit":"contain"}
+{"type":"video","url":"https://example.com/a.mp4","muted":true,"loop":true}
+{"type":"layout","layout":"quad"}
+{"type":"source","source":"monitor","cell":0}
+{"type":"bright","value":120}
+{"type":"power","on":false}
+```
+
+- 默认不带 `cell` 参数时内容全屏投放；带 `"cell":n` 时投到当前布局的第 n 分区。
+- URL 参数：`?mqtt=<wss地址>` 可覆盖 broker 地址，`?mqtt=off` 关闭自动连接；面板勾选「自动连接」的状态保存在 localStorage。
+- 断线自动重连（3s），25s 心跳保活。
+
 ## 使用
 
 直接用浏览器打开 `led-display-studio.html` 即可，无需构建、无需联网。
